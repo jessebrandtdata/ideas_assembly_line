@@ -19,6 +19,7 @@ Python 3.12, no dependencies. In [`prototype-bill-delay-tracker/`](prototype-bil
 | `collect.py` | Sweeps the GovInfo `BILLS` collection listing (one text version per row, 500 per request), fetches page counts from GovInfo package summaries (one call per version, capped and cached), and sweeps `api.congress.gov/v3/summaries/{congress}/{type}` for summary versions. Incremental and resumable: every page is saved as it lands. |
 | `delays.py` | Maps text versions and summaries onto four stages (introduced, reported, passed, enrolled), takes the earliest of each per bill, writes `delays.csv`, `awaiting.csv` (introduced bills with no introduced-stage summary) and `stats.json` (counts, mean / median / max, per-stage stats, histograms). |
 | `report.py` | Renders `stats.json` into `report.html`: stat cards, two SVG histograms, lag by stage, longest lags, oldest bills still waiting. Hand-rolled SVG in the Congressional Tech site's colors so it can move into the Astro site. |
+| `dashboard/` | Interactive view of `data/delays.json`: header metrics, lag histogram with bin-width toggle and hover, stage and bill-type filters, a brushable month timeseries, cumulative bills and cumulative pages (issued vs summarized). Under "All stages", "waiting" counts bills that have text but no summary at any stage, so summarized plus waiting equals bills. d3 v7 from cdnjs; pure computations in `metrics.js` under `node --test`. |
 | `keys.py` | Key lookup in the same order as the Congressional Tech repo's `congress_shared.auth`: `--api-key`, `DATA_GOV_API_KEY`, `~/.data.gov.api.key`; falls back to `DEMO_KEY`. |
 
 Real: the collectors, the join, the statistics, the report. Faked: nothing, but the fixture is tiny and the live sweep is capped by default so it finishes on `DEMO_KEY`.
@@ -33,6 +34,7 @@ cd ideas_assembly_line/2-prototypes/prototype-bill-delay-tracker
 python3 delays.py --data-dir tests/fixture --as-of 2026-10-14
 python3 report.py --data-dir tests/fixture --out tests/fixture/report.html
 # open tests/fixture/report.html
+node --test dashboard/metrics.test.mjs && python3 -m unittest discover -s tests
 
 # 2. Live data (free key from https://api.congress.gov/sign-up/, one key covers GovInfo too)
 echo YOUR_KEY > ~/.data.gov.api.key
@@ -40,6 +42,9 @@ python3 collect.py --congress 119 --max-version-pages 60 --max-page-lookups 200 
 python3 delays.py
 python3 report.py
 # open report.html
+
+# 3. Interactive dashboard (serves the prototype folder; open /dashboard/)
+python3 -m http.server 8000
 ```
 
 `collect.py --help` lists the caps. Rerunning only fetches what is new.
