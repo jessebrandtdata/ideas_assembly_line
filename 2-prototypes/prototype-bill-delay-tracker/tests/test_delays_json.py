@@ -63,8 +63,10 @@ class DelaysJson(unittest.TestCase):
 
     def test_count_matches_csvs(self):
         import csv
-        delays = list(csv.DictReader((self.tmp / "delays.csv").open()))
-        awaiting = list(csv.DictReader((self.tmp / "awaiting.csv").open()))
+        with (self.tmp / "delays.csv").open(newline="") as f:
+            delays = list(csv.DictReader(f))
+        with (self.tmp / "awaiting.csv").open(newline="") as f:
+            awaiting = list(csv.DictReader(f))
         waiting = [r for r in self.records if r["lag_days"] is None]
         self.assertEqual(len([r for r in self.records if r["lag_days"] is not None]), len(delays))
         # awaiting.csv only lists the introduced stage; the json lists waiting at every stage
