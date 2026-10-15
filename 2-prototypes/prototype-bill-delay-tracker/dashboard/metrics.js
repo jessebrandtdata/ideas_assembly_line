@@ -60,6 +60,14 @@ export function filterRecords(records, { stage = 'all', type = 'all', range = nu
   });
 }
 
+const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** Months present in the records' text_date, in order: [{ value: 'YYYY-MM', label: 'Jan 2025' }]. Feeds the month selects. */
+export function monthOptions(records) {
+  return [...new Set(records.map((r) => r.text_date.slice(0, 7)))].sort()
+    .map((value) => ({ value, label: `${MONTH_ABBR[+value.slice(5, 7) - 1]} ${value.slice(0, 4)}` }));
+}
+
 /** Per month of text_date: how many got a summary, how many wait, and lag quantiles among the summarized. */
 export function monthlySeries(records) {
   const byMonth = new Map();

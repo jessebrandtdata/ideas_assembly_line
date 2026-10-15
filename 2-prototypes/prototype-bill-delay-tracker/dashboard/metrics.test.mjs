@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativePages, histogramMax } from './metrics.js';
+import { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativePages, histogramMax, monthOptions } from './metrics.js';
 
 const rec = (o) => ({ type: 'hr', number: '1', stage: 'introduced', text_date: '2025-01-10',
   summary_date: null, lag_days: null, pages: null, reported: false, title: 't', ...o });
@@ -192,4 +192,11 @@ test('cumulativeSeries over a filtered subset ends at the headerMetrics of that 
   assert.equal(end.summarized, m.summarized);
   assert.equal(end.withText, m.summarized + m.waiting);
   assert.equal(end.withText, 2);
+});
+
+test('monthOptions lists the distinct months present, in order, labelled Mon YYYY', () => {
+  const rs = [rec({ text_date: '2025-03-10' }), rec({ text_date: '2025-01-02' }), rec({ text_date: '2025-03-30' }), rec({ text_date: '2026-10-01' })];
+  assert.deepEqual(monthOptions(rs), [
+    { value: '2025-01', label: 'Jan 2025' }, { value: '2025-03', label: 'Mar 2025' }, { value: '2026-10', label: 'Oct 2026' }]);
+  assert.deepEqual(monthOptions([]), []);
 });

@@ -14,8 +14,9 @@ h1 { margin: 0 0 4px; } .eyebrow { color: var(--muted); text-transform: uppercas
 .card .value { font-size: 28px; font-weight: 700; color: var(--blue); } .card .label { font-size: 13px; } .card .note { font-size: 11px; color: var(--muted); }
 .controls { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: end; margin: 8px 0 16px; font-size: 13px; }
 .controls label { display: flex; flex-direction: column; gap: 4px; } .controls select, .controls button { font: inherit; padding: 4px 8px; }
-.controls label.check { flex-direction: row; align-items: center; gap: 6px; }
-.slider { display: flex; align-items: center; gap: 10px; font-size: 13px; margin: 4px 0 0 56px; } .slider input { width: min(360px, 60%); }
+.strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; margin: 4px 0 0 56px; font-size: 13px; }
+.strip label.check { display: flex; align-items: center; gap: 6px; }
+.slider { display: flex; align-items: center; gap: 10px; font-size: 13px; } .slider input { width: min(360px, 60%); }
 figure { margin: 0 0 24px; } figure svg { max-width: 100%; height: auto; display: block; }
 .presumm { font-size: 12px; color: var(--muted); margin: -8px 0 16px; }
 .caveat { background: #fff8e6; border-left: 4px solid #eec05e; padding: 10px 14px; font-size: 13px; }
@@ -32,7 +33,10 @@ figure { margin: 0 0 24px; } figure svg { max-width: 100%; height: auto; display
 <p id="pre-text" class="presumm"></p>
 <figure id="histogram">
   <div id="hist-chart"></div>
-  <label class="slider">Bin width <input type="range" id="bin-width" min="7" max="90" step="1" value="30" aria-label="Bin width in days"> <span id="bin-width-label">30-day bins</span></label>
+  <div class="strip">
+    <label class="slider">Bin width <input type="range" id="bin-width" min="7" max="90" step="1" value="30" aria-label="Bin width in days"> <span id="bin-width-label">30-day bins</span></label>
+    <label class="check"><input type="checkbox" id="include-waiting" checked>Include bills still waiting for a summary</label>
+  </div>
 </figure>
 <figure id="timeseries"></figure>
 <figure id="cumulative"></figure>
