@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativePages, clampRange, histogramMax } from './metrics.js';
+import { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativePages, histogramMax } from './metrics.js';
 
 const rec = (o) => ({ type: 'hr', number: '1', stage: 'introduced', text_date: '2025-01-10',
   summary_date: null, lag_days: null, pages: null, reported: false, title: 't', ...o });
@@ -37,14 +37,14 @@ test('headerMetrics median of odd count and null lags when nothing summarized', 
   assert.equal(headerMetrics([]).bills, 0);
 });
 
-test('binLags puts lags in fixed-width bins, last bin open, waiting ignored', () => {
+test('binLags puts lags in fixed-width bins from 0 to the max lag, waiting ignored', () => {
   const bins = binLags([rec({ lag_days: 0 }), rec({ lag_days: 29 }), rec({ lag_days: 30 }),
-    rec({ lag_days: 5000 }), rec()], 30, 4);
+    rec({ lag_days: 100 }), rec()], 30);
   assert.deepEqual(bins, [
     { from: 0, to: 30, count: 2 },
     { from: 30, to: 60, count: 1 },
     { from: 60, to: 90, count: 0 },
-    { from: 90, to: null, count: 1 },
+    { from: 90, to: 120, count: 1 },
   ]);
 });
 
@@ -53,7 +53,7 @@ test('binLags on empty input and on only-waiting input', () => {
   assert.deepEqual(binLags([rec()], 30), []);
 });
 
-test('filterRecords by stage, type, and inclusive date range', () => {
+test('filterRecords by stage, type, and inclusive month range', () => {
   const rs = [
     rec({ number: '1', stage: 'introduced', type: 'hr', text_date: '2025-01-10' }),
     rec({ number: '2', stage: 'reported', type: 'hr', text_date: '2025-03-10' }),
@@ -62,8 +62,19 @@ test('filterRecords by stage, type, and inclusive date range', () => {
   assert.equal(filterRecords(rs, { stage: 'all', type: 'all', range: null }).length, 3);
   assert.deepEqual(filterRecords(rs, { stage: 'introduced', type: 'all', range: null }).map((r) => r.number), ['1', '3']);
   assert.deepEqual(filterRecords(rs, { stage: 'all', type: 's', range: null }).map((r) => r.number), ['3']);
-  assert.deepEqual(filterRecords(rs, { stage: 'all', type: 'all', range: ['2025-03-10', '2025-06-30'] }).map((r) => r.number), ['2', '3']);
-  assert.deepEqual(filterRecords(rs, { stage: 'all', type: 'all', range: ['2026-01-01', '2026-12-31'] }), []);
+  assert.deepEqual(filterRecords(rs, { stage: 'all', type: 'all', range: { from: '2025-03', to: '2025-06' } }).map((r) => r.number), ['2', '3']);
+  assert.deepEqual(filterRecords(rs, { stage: 'all', type: 'all', range: { from: '2026-01', to: '2026-12' } }), []);
+});
+
+test('filterRecords honours from-only, to-only, both, and treats an inverted range as none', () => {
+  const rs = ['2025-01-31', '2025-02-01', '2025-03-15', '2025-04-30'].map((d, i) => rec({ number: String(i), text_date: d }));
+  const nums = (range) => filterRecords(rs, { range }).map((r) => r.number);
+  assert.deepEqual(nums({ from: '2025-02', to: null }), ['1', '2', '3']);
+  assert.deepEqual(nums({ from: null, to: '2025-03' }), ['0', '1', '2']);
+  assert.deepEqual(nums({ from: '2025-02', to: '2025-03' }), ['1', '2']);
+  assert.deepEqual(nums({ from: '2025-04', to: '2025-04' }), ['3']);
+  assert.deepEqual(nums({ from: '2025-04', to: '2025-02' }), ['0', '1', '2', '3']);
+  assert.deepEqual(nums({ from: null, to: null }), ['0', '1', '2', '3']);
 });
 
 test('monthlySeries groups by month of text_date with lag quantiles', () => {
@@ -81,13 +92,13 @@ test('monthlySeries groups by month of text_date with lag quantiles', () => {
   assert.deepEqual(monthlySeries([]), []);
 });
 
-test('binLags totals are width-invariant', () => {
-  const rs = [rec({ lag_days: 3 }), rec({ lag_days: 45 }), rec({ lag_days: 200 }), rec({ lag_days: 800 })];
-  const total = (w) => binLags(rs, w).reduce((s, b) => s + b.count, 0);
-  assert.equal(total(7), 4);
-  assert.equal(total(30), 4);
-  assert.equal(total(90), 4);
-  assert.equal(binLags(rs, 7).at(-1).to, null); // 800/7 > 20 bins → open last bin
+test('binLags at width 7 over lags up to 626 gives 90 fixed bins whose counts sum to n, no open bin', () => {
+  const rs = [rec({ lag_days: 3 }), rec({ lag_days: 45 }), rec({ lag_days: 200 }), rec({ lag_days: 626 })];
+  const bins = binLags(rs, 7);
+  assert.equal(bins.length, 90);
+  assert.ok(bins.every((b) => b.to === b.from + 7));
+  assert.equal(bins.reduce((s, b) => s + b.count, 0), 4);
+  for (const w of [30, 90]) assert.equal(binLags(rs, w).reduce((s, b) => s + b.count, 0), 4);
 });
 
 test('cumulativeSeries counts distinct bills with text and with a summary by date', () => {
@@ -149,14 +160,6 @@ test('cumulativePages follows the stage filter for summarized pages only', () =>
   assert.equal(last('passed').pagesSummarized, 0);
 });
 
-test('clampRange: unchanged, clamped at one end, cleared', () => {
-  const months = ['2025-02', '2025-03', '2025-04'];
-  assert.deepEqual(clampRange(['2025-02-01', '2025-04-30'], months), ['2025-02-01', '2025-04-30']);
-  assert.deepEqual(clampRange(['2025-01-01', '2025-03-31'], months), ['2025-02-01', '2025-03-31']);
-  assert.equal(clampRange(['2026-01-01', '2026-02-28'], months), null);
-  assert.equal(clampRange(null, months), null);
-});
-
 test('headerMetrics.reported counts distinct bills with a reported-stage record, even without an introduced record', () => {
   const rs = [
     rec({ number: '1', stage: 'reported', type: 'hr' }),
@@ -165,15 +168,15 @@ test('headerMetrics.reported counts distinct bills with a reported-stage record,
     rec({ number: '3', stage: 'reported', type: 's', text_date: '2025-05-01' }),
   ];
   assert.equal(headerMetrics(rs).reported, 2);
-  const brushed = filterRecords(rs, { type: 'all', range: ['2025-04-01', '2025-06-30'] });
-  assert.equal(headerMetrics(brushed).reported, 1);
+  const ranged = filterRecords(rs, { type: 'all', range: { from: '2025-04', to: '2025-06' } });
+  assert.equal(headerMetrics(ranged).reported, 1);
 });
 
-test('histogramMax is the tallest regular bin, so the waiting count cannot stretch the scale', () => {
+test('histogramMax is one scale: the tallest bin, or the waiting count when that bar is drawn and taller', () => {
   const bins = binLags([rec({ lag_days: 5 }), rec({ lag_days: 6 }), rec({ lag_days: 40 })], 30);
-  const waiting = headerMetrics(Array.from({ length: 500 }, (_, i) => rec({ number: String(i + 10) }))).waiting;
-  assert.equal(waiting, 500);
   assert.equal(histogramMax(bins), 2);
+  assert.equal(histogramMax(bins, 500), 500);
+  assert.equal(histogramMax(bins, 1), 2);
   assert.equal(histogramMax([]), 1);
 });
 
@@ -184,7 +187,7 @@ test('cumulativeSeries over a filtered subset ends at the headerMetrics of that 
     rec({ number: '3', text_date: '2025-01-05', lag_days: 4, summary_date: '2025-01-09' }),
     rec({ number: '4', text_date: '2025-11-05' }),
   ];
-  const subset = filterRecords(rs, { stage: 'introduced', type: 'all', range: ['2025-04-01', '2025-10-31'] });
+  const subset = filterRecords(rs, { stage: 'introduced', type: 'all', range: { from: '2025-04', to: '2025-10' } });
   const m = headerMetrics(subset), end = cumulativeSeries(subset).at(-1);
   assert.equal(end.summarized, m.summarized);
   assert.equal(end.withText, m.summarized + m.waiting);

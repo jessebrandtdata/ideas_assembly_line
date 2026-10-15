@@ -31,30 +31,33 @@ export function headerMetrics(records) {
   };
 }
 
-/** Top of the histogram y scale: the tallest regular bin only. The waiting bar never sets the scale (it is drawn broken). */
-export function histogramMax(bins) {
-  return Math.max(1, ...bins.map((b) => b.count));
+/** Top of the histogram y scale: the tallest bin, or the waiting count when that bar is drawn and taller. One linear scale. */
+export function histogramMax(bins, waiting = 0) {
+  return Math.max(1, waiting, ...bins.map((b) => b.count));
 }
 
-/** Fixed-width bins of lag_days; the last bin is open-ended so nothing is dropped. */
-export function binLags(records, width, maxBins = 20) {
+/** Fixed-width bins of lag_days from 0 to the largest lag in view; no open-ended bin. */
+export function binLags(records, width) {
   const lags = records.filter((r) => r.lag_days !== null).map((r) => r.lag_days);
   if (lags.length === 0) return [];
-  const needed = Math.floor(Math.max(...lags) / width) + 1;
-  const count = Math.min(needed, maxBins);
-  const bins = Array.from({ length: count }, (_, i) => ({
-    from: i * width, to: i === count - 1 && needed > count ? null : (i + 1) * width, count: 0,
-  }));
+  const count = Math.floor(Math.max(0, ...lags) / width) + 1;
+  const bins = Array.from({ length: count }, (_, i) => ({ from: i * width, to: (i + 1) * width, count: 0 }));
   for (const lag of lags) bins[Math.min(Math.max(0, Math.floor(lag / width)), count - 1)].count += 1;
   return bins;
 }
 
-/** Records in view. range is null or [fromISO, toISO], inclusive on text_date. */
+/** Records in view. range is null or {from, to} as 'YYYY-MM' or null (open side); inclusive on the introduction month.
+ *  A from later than to is treated as no range. */
 export function filterRecords(records, { stage = 'all', type = 'all', range = null }) {
-  return records.filter((r) =>
-    (stage === 'all' || r.stage === stage) &&
-    (type === 'all' || r.type === type) &&
-    (range === null || (r.text_date >= range[0] && r.text_date <= range[1])));
+  const from = range?.from || null, to = range?.to || null;
+  const ranged = !(from && to && from > to) && (from || to);
+  return records.filter((r) => {
+    if (stage !== 'all' && r.stage !== stage) return false;
+    if (type !== 'all' && r.type !== type) return false;
+    if (!ranged) return true;
+    const month = r.text_date.slice(0, 7);
+    return (!from || month >= from) && (!to || month <= to);
+  });
 }
 
 /** Per month of text_date: how many got a summary, how many wait, and lag quantiles among the summarized. */
@@ -107,13 +110,4 @@ export function cumulativePages(records, stage = 'all') {
   const running = (pairs) => { const sorted = pairs.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)); let i = 0, sum = 0; return (d) => { while (i < sorted.length && sorted[i][0] <= d) sum += sorted[i++][1]; return sum; }; };
   const pi = running(issued), ps = running(summarized), pm = running(missing.map((d) => [d, 1]));
   return dates.map((date) => ({ date, pagesIssued: pi(date), pagesSummarized: ps(date), versionsWithoutPages: pm(date) }));
-}
-
-/** Clamp a brushed [fromISO, toISO] range to the months (YYYY-MM, sorted) present; null when none fall inside. */
-export function clampRange(range, months) {
-  if (range === null) return null;
-  const lastDay = (m) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10); };
-  const inside = months.filter((m) => `${m}-01` <= range[1] && lastDay(m) >= range[0]);
-  if (inside.length === 0) return null;
-  return [`${inside[0]}-01`, lastDay(inside[inside.length - 1])];
 }
