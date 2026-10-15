@@ -1,8 +1,11 @@
-import { headerMetrics, binLags, histogramMax, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativePages } from './metrics.js';
+import { headerMetrics, binLags, histogramMax, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativePages, longestLags, oldestWaiting, billLabel, billUrl, ordinal } from './metrics.js';
 
 const BLUE = '#104378', RED = '#b2182b', INK = '#1f2933', MUTED = '#6b7280';
 let fmt; // assigned in main() once d3 is known to be loaded
 const day = (v) => (v === null ? '–' : `${Math.round(v)}`);
+
+let congress = ''; // envelope's congress number, set in main()
+let asOf = ''; // envelope's as_of date (ISO)
 
 const state = { records: [], summaryBefore: {}, stage: 'all', type: 'all', range: { from: null, to: null }, includeWaiting: true, width: 30 };
 
@@ -207,12 +210,35 @@ function renderCumulative(target, series, keys, labels, title, yLabel, note = ''
   svg.append('text').attr('x', W - right).attr('y', y(last[keys[1]]) - 6).attr('font-size', 11).attr('text-anchor', 'end').attr('fill', BLUE).text(`${fmt(last[keys[1]])} ${labels[1]}`);
 }
 
+const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// cols: [header, cell(row) -> html, class]
+function renderTable(selector, rows, cols) {
+  const host = document.querySelector(`${selector} .table-wrap`);
+  if (rows.length === 0) { host.innerHTML = '<p class="note">No bills in this view.</p>'; return; }
+  host.innerHTML = `<table><thead><tr>${cols.map(([h, , c]) => `<th class="${c}">${h}</th>`).join('')}</tr></thead><tbody>`
+    + rows.map((r) => `<tr>${cols.map(([, f, c]) => `<td class="${c}">${f(r)}</td>`).join('')}</tr>`).join('') + '</tbody></table>';
+}
+
+const billCell = (r) => `<a href="${esc(billUrl(congress, r.type, r.number))}" target="_blank" rel="noopener">${esc(billLabel(r.type, r.number))}</a>`;
+
+function renderLists(records) {
+  const bill = ['Bill', billCell, 'nowrap'], stage = ['Stage', (r) => esc(r.stage), 'nowrap'];
+  const textDate = ['Text date', (r) => esc(r.text_date), 'nowrap'], pages = ['Pages', (r) => (r.pages == null ? '–' : fmt(r.pages)), 'num'];
+  const title = ['Title', (r) => esc(r.title), 'title'];
+  renderTable('#longest-lags', longestLags(records), [bill, stage, textDate,
+    ['Summary date', (r) => esc(r.summary_date), 'nowrap'], ['Days', (r) => fmt(r.lag_days), 'num'], pages, title]);
+  renderTable('#oldest-waiting', oldestWaiting(records, asOf), [bill, stage, textDate,
+    ['Days waiting', (r) => fmt(r.days_waiting), 'num'], pages, title]);
+}
+
 export function render(state) {
   renderControls(state);
   const unranged = filterRecords(state.records, { stage: state.stage, type: state.type, range: null });
   const records = filterRecords(state.records, state);
   renderHeader(records, filterRecords(state.records, { stage: 'all', type: state.type, range: state.range }), state.stage);
   renderPreText();
+  renderLists(records);
   renderHistogram(records, state);
   renderTimeseries(unranged, state);
   const scope = rangeLabel(state.range);
@@ -235,13 +261,15 @@ async function main() {
     const doc = await res.json();
     if (!Array.isArray(doc.records)) throw new Error('delays.json has no records array');
     state.records = doc.records;
+    congress = doc.congress;
+    asOf = doc.as_of;
     state.summaryBefore = doc.summary_before_text || {};
     document.getElementById('subtitle').textContent =
-      `Lag between a bill text version on GovInfo and its CRS summary on Congress.gov, ${doc.congress}th Congress, as of ${doc.as_of}.`;
+      `Lag between a bill text version on GovInfo and its CRS summary on Congress.gov, ${ordinal(doc.congress)} Congress, as of ${doc.as_of}.`;
     render(state);
   } catch (err) {
     document.getElementById('controls').innerHTML = '';
-    document.querySelectorAll('figure').forEach((f) => { f.innerHTML = ''; });
+    document.querySelectorAll('figure, .table-wrap').forEach((f) => { f.innerHTML = ''; });
     document.getElementById('pre-text').textContent = '';
     const cards = document.getElementById('cards');
     cards.innerHTML = '';

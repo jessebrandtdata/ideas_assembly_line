@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativePages, histogramMax, dateBounds } from './metrics.js';
+import { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativePages, histogramMax, dateBounds, longestLags, oldestWaiting, billLabel, billUrl, ordinal } from './metrics.js';
 
 const rec = (o) => ({ type: 'hr', number: '1', stage: 'introduced', text_date: '2025-01-10',
   summary_date: null, lag_days: null, pages: null, reported: false, title: 't', ...o });
@@ -200,4 +200,47 @@ test('dateBounds is the earliest and latest text_date, ISO strings', () => {
   const rs = [rec({ text_date: '2025-03-10' }), rec({ text_date: '2025-01-02' }), rec({ text_date: '2026-10-01' })];
   assert.deepEqual(dateBounds(rs), { min: '2025-01-02', max: '2026-10-01' });
   assert.deepEqual(dateBounds([]), { min: null, max: null });
+});
+
+test('billLabel and billUrl cover all four bill types', () => {
+  assert.equal(billLabel('hr', '360'), 'H.R. 360');
+  assert.equal(billLabel('s', '12'), 'S. 12');
+  assert.equal(billLabel('hjres', '5'), 'H.J.Res. 5');
+  assert.equal(billLabel('sjres', '7'), 'S.J.Res. 7');
+  assert.equal(billUrl('119', 'hr', '360'), 'https://www.congress.gov/bill/119th-congress/house-bill/360');
+  assert.equal(billUrl(119, 's', '12'), 'https://www.congress.gov/bill/119th-congress/senate-bill/12');
+  assert.equal(billUrl('119', 'hjres', '5'), 'https://www.congress.gov/bill/119th-congress/house-joint-resolution/5');
+  assert.equal(billUrl('119', 'sjres', '7'), 'https://www.congress.gov/bill/119th-congress/senate-joint-resolution/7');
+});
+
+test('ordinal handles st/nd/rd/th and the teens', () => {
+  assert.deepEqual([1, 2, 3, 4, 11, 12, 13, 21, 101, 112, 119].map(ordinal),
+    ['1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '101st', '112th', '119th']);
+  assert.equal(billUrl('118', 'hr', '1'), 'https://www.congress.gov/bill/118th-congress/house-bill/1');
+});
+
+test('longestLags orders by lag desc, ties by number asc, drops waiting and null stage, caps at n', () => {
+  const s = (o) => rec({ summary_date: '2025-06-01', ...o });
+  const rs = [
+    s({ number: '30', lag_days: 50 }), s({ number: '4', lag_days: 50 }), s({ number: '9', lag_days: 90 }),
+    rec({ number: '1', lag_days: null }), s({ number: '2', lag_days: 500, stage: null }), s({ number: '8', lag_days: 5 }),
+  ];
+  assert.deepEqual(longestLags(rs).map((r) => r.number), ['9', '4', '30', '8']);
+  assert.deepEqual(longestLags(rs, 2).map((r) => r.number), ['9', '4']);
+  assert.deepEqual(longestLags([]), []);
+  assert.equal(longestLags(Array.from({ length: 25 }, (_, i) => s({ number: String(i), lag_days: i }))).length, 10);
+});
+
+test('oldestWaiting computes whole days to as_of, orders desc, ties by number, drops summarized and null stage', () => {
+  const rs = [
+    rec({ number: '30', text_date: '2025-10-15' }), rec({ number: '4', text_date: '2025-10-15' }),
+    rec({ number: '9', text_date: '2025-01-01' }), rec({ number: '2', text_date: '2024-01-01', stage: null }),
+    rec({ number: '5', text_date: '2025-01-01', summary_date: '2025-02-01', lag_days: 31 }),
+  ];
+  const out = oldestWaiting(rs, '2026-10-15');
+  assert.deepEqual(out.map((r) => r.number), ['9', '4', '30']);
+  assert.deepEqual(out.map((r) => r.days_waiting), [652, 365, 365]);
+  assert.equal(oldestWaiting(rs, '2026-10-15', 1).length, 1);
+  assert.equal(rs[0].days_waiting, undefined); // input untouched
+  assert.equal(oldestWaiting([rec({ text_date: '2024-02-28' })], '2024-03-01')[0].days_waiting, 2); // leap day
 });

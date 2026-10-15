@@ -55,6 +55,18 @@ versions counted"), bills summarized, bills reported by committee (distinct bill
 filter and date range, ignoring the stage select), mean /
 median / max lag in days.
 
+Foot of the page, after the cumulative pages chart and before the caveat: two
+top-10 tables, "Longest lags" (filtered records with a summary, by `lag_days`
+descending; Bill, Stage, Text date, Summary date, Days, Pages, Title) and
+"Oldest bills still waiting" (filtered records with no summary, by days from
+`text_date` to the envelope's `as_of`; Bill, Stage, Text date, Days waiting,
+Pages, Title). Both follow stage, type and date range, exclude stage-less
+records, break ties by bill number ascending, and show "No bills in this view."
+when empty. Bill cells link to
+`congress.gov/bill/<congress ordinal>-congress/<type slug>/<number>` in a new
+tab. Pure parts (`longestLags`, `oldestWaiting`, `billLabel`, `billUrl`) live in
+`metrics.js`.
+
 ## Histogram
 
 Lag in days for filtered records that have a summary. Default filter: all

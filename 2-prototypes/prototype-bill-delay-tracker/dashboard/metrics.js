@@ -112,3 +112,44 @@ export function cumulativePages(records, stage = 'all') {
   const pi = running(issued), ps = running(summarized), pm = running(missing.map((d) => [d, 1]));
   return dates.map((date) => ({ date, pagesIssued: pi(date), pagesSummarized: ps(date), versionsWithoutPages: pm(date) }));
 }
+
+const BILL_LABELS = { hr: 'H.R.', s: 'S.', hjres: 'H.J.Res.', sjres: 'S.J.Res.' };
+const BILL_SLUGS = { hr: 'house-bill', s: 'senate-bill', hjres: 'house-joint-resolution', sjres: 'senate-joint-resolution' };
+
+/** "H.R. 360": the conventional abbreviation for the bill type, a space, the number. */
+export function billLabel(type, number) {
+  return `${BILL_LABELS[type] ?? String(type).toUpperCase()} ${number}`;
+}
+
+/** English ordinal: 119 -> "119th", 101 -> "101st", 112 -> "112th". */
+export function ordinal(n) {
+  const k = Number(n), mod100 = k % 100, mod10 = k % 10;
+  const suffix = mod100 >= 11 && mod100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[mod10] ?? 'th');
+  return `${k}${suffix}`;
+}
+
+/** congress.gov page for a bill; congress is the envelope's number (119 or "119"). */
+export function billUrl(congress, type, number) {
+  return `https://www.congress.gov/bill/${ordinal(congress)}-congress/${BILL_SLUGS[type]}/${number}`;
+}
+
+const byNumber = (a, b) => Number(a.number) - Number(b.number) || (a.type < b.type ? -1 : a.type > b.type ? 1 : 0);
+
+/** Top n records by lag_days descending among those with a summary; stage-less records excluded; ties by bill number ascending. */
+export function longestLags(records, n = 10) {
+  return records
+    .filter((r) => r.stage != null && r.summary_date != null && r.lag_days != null)
+    .sort((a, b) => b.lag_days - a.lag_days || byNumber(a, b))
+    .slice(0, n);
+}
+
+const utcDays = (iso) => { const [y, m, d] = iso.split('-').map(Number); return Date.UTC(y, m - 1, d) / 86400000; };
+
+/** Top n records with no summary by whole days from text_date to asOf (ISO), descending, as copies carrying days_waiting; ties by bill number ascending. */
+export function oldestWaiting(records, asOf, n = 10) {
+  return records
+    .filter((r) => r.stage != null && r.summary_date == null)
+    .map((r) => ({ ...r, days_waiting: utcDays(asOf) - utcDays(r.text_date) }))
+    .sort((a, b) => b.days_waiting - a.days_waiting || byNumber(a, b))
+    .slice(0, n);
+}
