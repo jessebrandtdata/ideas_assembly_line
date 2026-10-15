@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 BLUE, GOLD, INK, MUTED = "#104378", "#eec05e", "#1f2933", "#6b7280"  # ctdc tokens
+RED = "#b2182b"  # ColorBrewer RdBu: waiting = bad
 
 
 def esc(s):
@@ -79,14 +80,14 @@ def timeseries_chart(monthly):
         tot = m["summarized"] + m["awaiting"] or 1
         sh = top_h * m["summarized"] / tot
         out.append(f'<rect x="{x:.1f}" y="{top_y + top_h - sh:.1f}" width="{bw:.1f}" height="{sh:.1f}" fill="{BLUE}"><title>{m["month"]}: {m["summarized"]} summarized, {m["awaiting"]} waiting</title></rect>')
-        out.append(f'<rect x="{x:.1f}" y="{top_y:.1f}" width="{bw:.1f}" height="{top_h - sh:.1f}" fill="{GOLD}"><title>{m["month"]}: {m["awaiting"]} waiting</title></rect>')
+        out.append(f'<rect x="{x:.1f}" y="{top_y:.1f}" width="{bw:.1f}" height="{top_h - sh:.1f}" fill="{RED}"><title>{m["month"]}: {m["awaiting"]} waiting</title></rect>')
     for frac in (0, 0.25, 0.5, 0.75, 1):
         y = top_y + top_h - top_h * frac
         out.append(f'<line x1="{left}" x2="{w - right}" y1="{y:.1f}" y2="{y:.1f}" stroke="#e5e7eb"/>')
         out.append(f'<text x="{left - 6}" y="{y + 4:.1f}" font-size="10" text-anchor="end" fill="{MUTED}">{int(frac * 100)}%</text>')
     y_title("Share of bills introduced that month", top_y + top_h / 2)
     out.append(f'<rect x="{left}" y="{top_y - 14}" width="10" height="10" fill="{BLUE}"/><text x="{left + 14}" y="{top_y - 5}" font-size="11" fill="{INK}">has introduced-stage CRS summary</text>')
-    out.append(f'<rect x="{left + 215}" y="{top_y - 14}" width="10" height="10" fill="{GOLD}"/><text x="{left + 229}" y="{top_y - 5}" font-size="11" fill="{INK}">still waiting for one</text>')
+    out.append(f'<rect x="{left + 215}" y="{top_y - 14}" width="10" height="10" fill="{RED}"/><text x="{left + 229}" y="{top_y - 5}" font-size="11" fill="{INK}">still waiting for one</text>')
     month_axis(top_y + top_h + 14)
 
     # bottom panel: lag lines
@@ -106,7 +107,7 @@ def timeseries_chart(monthly):
     out.append(f'<text x="{left + 290}" y="{bot_y - 5}" font-size="11" fill="{MUTED}">lag among the bills summarized so far</text>')
     month_axis(bot_y + bot_h + 14)
     out.append(f'<text x="{left}" y="{h - 16}" font-size="11" fill="{MUTED}">Right-censored: in recent months only the bills already summarized count toward the lag lines, so they fall at the right edge.</text>')
-    out.append(f'<text x="{left}" y="{h - 3}" font-size="11" fill="{MUTED}">The gold share above is the honest companion: those bills have no lag yet because they have no summary yet.</text>')
+    out.append(f'<text x="{left}" y="{h - 3}" font-size="11" fill="{MUTED}">The red share above is the honest companion: those bills have no lag yet because they have no summary yet.</text>')
     out.append("</svg>")
     return "".join(out)
 
@@ -168,7 +169,7 @@ footer{{color:{MUTED};font-size:12px;margin-top:24px}}
 </div>
 <div class="charts">
 {bar_chart(st['introduced_histogram'], 'Introduced text → introduced summary, lag in days', BLUE)}
-{bar_chart(st['awaiting_histogram'], 'Introduced text still without a summary, age in days', GOLD)}
+{bar_chart(st['awaiting_histogram'], 'Introduced text still without a summary, age in days', RED)}
 </div>
 <h2>Over time</h2>
 {timeseries_chart(st.get('monthly_introduced', []))}
