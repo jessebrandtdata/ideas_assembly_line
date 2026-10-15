@@ -107,3 +107,10 @@ Missing or malformed JSON shows one message in the page; nothing partial.
 - `dashboard/metrics.test.mjs` (`node --test`): pure functions in `metrics.js`
   (binning, header metrics) without a browser.
 - Headless-chromium screenshot per rung as the maintainer's visual check.
+
+## Exports
+
+- Charts: each figure has a quiet right-aligned "Download PNG" / "Download SVG" row. The SVG is a clone of the figure's `<svg>` with computed text/shape styles inlined, `xmlns`, explicit width/height and a white background rect; the PNG draws that same SVG into a 2x canvas. The title is already inside each `<svg>`, so nothing is added. The webfont is not available to an SVG loaded as an image, so the clone's font-family is `"Source Sans 3", system-ui, sans-serif` and the PNG falls back to the system font; the title is pinned to its on-page width so the fallback cannot clip it.
+- Tables: each section heading row has "Download CSV" with every row of the filtered view in table order (`longestLags` / `oldestWaiting` called with `n = Infinity`). Columns: bill, stage, type, number, text_date, summary_date (lags only), days, pages, title, url. RFC 4180 quoting, CRLF.
+- Filenames come from `exportName(kind, state, asOf)` in `metrics.js`; the date range part is present only for a usable range, with an open side written `start` / `end`.
+- All are `<button type="button">` with an aria-label naming the figure; they follow the existing controls in Tab order within their figure.

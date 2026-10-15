@@ -153,3 +153,18 @@ export function oldestWaiting(records, asOf, n = 10) {
     .sort((a, b) => b.days_waiting - a.days_waiting || byNumber(a, b))
     .slice(0, n);
 }
+
+/** Download filename (no extension): bill-delay-<kind>-<stage>-<type>[-<from>_<to>]-<asOf>.
+ *  The range part appears only for a usable range (an inverted one is ignored, as in filterRecords); an open side reads "start"/"end". */
+export function exportName(kind, { stage = 'all', type = 'all', range = null } = {}, asOf) {
+  const from = range?.from || null, to = range?.to || null;
+  const ranged = (from || to) && !(from && to && from > to);
+  return ['bill-delay', kind, stage, type, ...(ranged ? [`${from || 'start'}_${to || 'end'}`] : []), asOf].join('-');
+}
+
+/** RFC 4180 CSV: header row of the column keys, then one row per record; fields with a comma, quote, CR or LF are quoted
+ *  with embedded quotes doubled; null/undefined become empty; rows are joined by CRLF (no trailing newline). */
+export function toCsv(rows, columns) {
+  const cell = (v) => { const t = v == null ? '' : String(v); return /[",\r\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+  return [columns, ...rows.map((r) => columns.map((c) => r[c]))].map((line) => line.map(cell).join(',')).join('\r\n');
+}

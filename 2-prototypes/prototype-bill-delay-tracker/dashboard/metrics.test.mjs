@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativePages, histogramMax, dateBounds, longestLags, oldestWaiting, billLabel, billUrl, ordinal } from './metrics.js';
+import { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativePages, histogramMax, dateBounds, longestLags, oldestWaiting, billLabel, billUrl, ordinal, exportName, toCsv } from './metrics.js';
 
 const rec = (o) => ({ type: 'hr', number: '1', stage: 'introduced', text_date: '2025-01-10',
   summary_date: null, lag_days: null, pages: null, reported: false, title: 't', ...o });
@@ -243,4 +243,35 @@ test('oldestWaiting computes whole days to as_of, orders desc, ties by number, d
   assert.equal(oldestWaiting(rs, '2026-10-15', 1).length, 1);
   assert.equal(rs[0].days_waiting, undefined); // input untouched
   assert.equal(oldestWaiting([rec({ text_date: '2024-02-28' })], '2024-03-01')[0].days_waiting, 2); // leap day
+});
+
+test('longestLags and oldestWaiting with no limit return every qualifying record in order', () => {
+  const s = (o) => rec({ summary_date: '2025-06-01', ...o });
+  const many = Array.from({ length: 25 }, (_, i) => s({ number: String(i), lag_days: i % 5 }));
+  const all = longestLags(many, Infinity);
+  assert.equal(all.length, 25);
+  assert.ok(all.every((r, i) => i === 0 || all[i - 1].lag_days > r.lag_days || (all[i - 1].lag_days === r.lag_days && Number(all[i - 1].number) < Number(r.number))));
+  const waiting = Array.from({ length: 15 }, (_, i) => rec({ number: String(i), text_date: `2025-0${1 + (i % 3)}-01` }));
+  const w = oldestWaiting(waiting, '2026-01-01', Infinity);
+  assert.equal(w.length, 15);
+  assert.deepEqual(w.slice(0, 3).map((r) => r.number), ['0', '3', '6']); // oldest date first, ties by number
+  assert.ok(w.every((r, i) => i === 0 || w[i - 1].days_waiting >= r.days_waiting));
+});
+
+test('exportName builds the filename stem, with the range only when it is usable', () => {
+  const st = { stage: 'all', type: 'all', range: { from: null, to: null } };
+  assert.equal(exportName('histogram', st, '2026-10-15'), 'bill-delay-histogram-all-all-2026-10-15');
+  assert.equal(exportName('timeseries', { ...st, stage: 'enrolled', type: 'hr', range: { from: '2025-01-01', to: '2025-03-31' } }, '2026-10-15'),
+    'bill-delay-timeseries-enrolled-hr-2025-01-01_2025-03-31-2026-10-15');
+  assert.equal(exportName('cumulative', { ...st, range: { from: '2025-02-01', to: null } }, '2026-10-15'), 'bill-delay-cumulative-all-all-2025-02-01_end-2026-10-15');
+  assert.equal(exportName('cumulative', { ...st, range: { from: '2025-05-01', to: '2025-01-01' } }, '2026-10-15'), 'bill-delay-cumulative-all-all-2026-10-15'); // inverted = none
+  assert.equal(exportName('longest-lags', { stage: 'all', type: 's' }, '2026-10-15'), 'bill-delay-longest-lags-all-s-2026-10-15');
+});
+
+test('toCsv quotes per RFC 4180 and ends rows with CRLF', () => {
+  const rows = [{ a: 'plain', b: 'x,y', c: null }, { a: 'say "hi"', b: 'two\nlines', c: 0 }];
+  assert.equal(toCsv(rows, ['a', 'b', 'c']), 'a,b,c\r\nplain,"x,y",\r\n"say ""hi""","two\nlines",0');
+  assert.equal(toCsv([], ['a', 'b']), 'a,b');
+  const title = 'Act to amend "Title 5", relating to pay, and for other purposes';
+  assert.equal(toCsv([{ title }], ['title']), `title\r\n"Act to amend ""Title 5"", relating to pay, and for other purposes"`);
 });
