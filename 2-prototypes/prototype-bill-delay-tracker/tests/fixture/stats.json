@@ -1,18 +1,18 @@
 {
  "as_of": "2026-10-14",
- "computed_at": "2026-10-15T02:50:24+00:00",
+ "computed_at": "2026-10-15T03:59:35+00:00",
  "congress": "119",
  "bills_with_text": 3,
- "text_versions": 4,
- "bills_summarized": 2,
+ "text_versions": 5,
+ "bills_summarized": 3,
  "bills_reported_by_committee": 1,
  "introduced_with_summary": 1,
  "introduced_awaiting_summary": 1,
  "pages": {
-  "versions_with_count": 2,
-  "versions_total": 4,
-  "total": 2136,
-  "mean": 1068
+  "versions_with_count": 3,
+  "versions_total": 5,
+  "total": 3036,
+  "mean": 1012
  },
  "delay_days": {
   "n": 3,
@@ -136,7 +136,7 @@
    "p90_lag": 4
   }
  ],
- "summaries_collected": 3,
+ "summaries_collected": 4,
  "caveats": [
   "delay = summary last-update date minus the date printed on the text version; the API has no first-published date for summaries, so revised summaries overstate the lag",
   "'awaiting' means no introduced-stage summary appears in the summaries collected so far; a partial summaries sweep inflates it",

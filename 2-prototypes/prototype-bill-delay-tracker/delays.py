@@ -14,7 +14,7 @@ import argparse
 import csv
 import json
 import statistics
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -33,6 +33,8 @@ def summary_stage(action_desc):
         return "passed"
     if d.startswith("public law") or d.startswith("enrolled"):
         return "enrolled"
+    if d.startswith("house agreed to senate amendment") or d.startswith("senate agreed to house amendment"):
+        return "passed"
     return None
 
 
@@ -127,6 +129,29 @@ def main():
     awaiting.sort(key=lambda r: -r["age_days"])
     write_csv(a.data_dir / "awaiting.csv", awaiting,
               ["bill_type", "number", "package_id", "text_date", "age_days", "pages", "title"])
+
+    # one record per text version for the dashboard. Only the earliest edition of a
+    # (bill, stage) carries the stage and its lag; every other edition keeps its pages
+    # under stage null so "pages processed" counts the whole Congress.
+    earliest = {v["package_id"]: k for k, v in text.items()}
+    records = []
+    for v in sorted(versions, key=lambda v: (v["bill_type"], int(v["number"]), v["date_issued"])):
+        k = earliest.get(v["package_id"])
+        s = summ.get(k) if k else None
+        td = to_date(v["date_issued"])
+        sd = to_date(s["update_date"]) if s else None
+        records.append({"type": v["bill_type"], "number": v["number"], "stage": k[2] if k else None,
+                        "text_date": td.isoformat(),
+                        "summary_date": sd.isoformat() if sd else None,
+                        "lag_days": (sd - td).days if sd else None,
+                        "pages": pages.get(v["package_id"]),
+                        "reported": (v["bill_type"], v["number"]) in reported,
+                        "title": v["title"]})
+    before_text = Counter(k[2] for k in summ if k not in text)
+    (a.data_dir / "delays.json").write_text(json.dumps(
+        {"as_of": as_of.isoformat(), "congress": versions[0]["congress"] if versions else None,
+         "summary_before_text": dict(sorted(before_text.items())), "records": records},
+        separators=(",", ":")) + "\n")
 
     by_stage = defaultdict(list)
     for d in delays:

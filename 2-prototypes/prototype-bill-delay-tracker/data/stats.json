@@ -1,6 +1,6 @@
 {
  "as_of": "2026-10-14",
- "computed_at": "2026-10-15T02:50:24+00:00",
+ "computed_at": "2026-10-15T03:59:35+00:00",
  "congress": "119",
  "bills_with_text": 16873,
  "text_versions": 19982,
@@ -15,9 +15,9 @@
   "mean": 15.2
  },
  "delay_days": {
-  "n": 5289,
+  "n": 5290,
   "mean": 160.9,
-  "median": 101,
+  "median": 101.0,
   "max": 626
  },
  "by_stage": {
@@ -36,9 +36,9 @@
    "min": 1
   },
   "passed": {
-   "n": 76,
-   "mean": 106.1,
-   "median": 68.0,
+   "n": 77,
+   "mean": 104.9,
+   "median": 68,
    "max": 392,
    "min": 1
   },
