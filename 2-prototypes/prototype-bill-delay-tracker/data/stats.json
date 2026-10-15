@@ -1,6 +1,6 @@
 {
- "as_of": "2026-10-14",
- "computed_at": "2026-10-15T03:59:35+00:00",
+ "as_of": "2026-10-15",
+ "computed_at": "2026-10-15T18:36:33+00:00",
  "congress": "119",
  "bills_with_text": 16873,
  "text_versions": 19982,
@@ -9,10 +9,10 @@
  "introduced_with_summary": 4779,
  "introduced_awaiting_summary": 11989,
  "pages": {
-  "versions_with_count": 600,
+  "versions_with_count": 19982,
   "versions_total": 19982,
-  "total": 9102,
-  "mean": 15.2
+  "total": 255049,
+  "mean": 12.8
  },
  "delay_days": {
   "n": 5290,
@@ -101,17 +101,17 @@
   {
    "from": 7,
    "to": 14,
-   "count": 120
+   "count": 42
   },
   {
    "from": 14,
    "to": 30,
-   "count": 523
+   "count": 564
   },
   {
    "from": 30,
    "to": 60,
-   "count": 253
+   "count": 290
   },
   {
    "from": 60,
@@ -126,12 +126,12 @@
   {
    "from": 180,
    "to": 365,
-   "count": 3468
+   "count": 3465
   },
   {
    "from": 365,
    "to": null,
-   "count": 4997
+   "count": 5000
   }
  ],
  "monthly_introduced": [
