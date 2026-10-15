@@ -51,8 +51,8 @@ Fetches `../data/delays.json` relative to the page. Opens from
 `python3 -m http.server` in the prototype folder.
 
 Header row, recomputed from the filtered records: pages processed (with "n of m
-versions counted"), bills summarized, bills reported by committee (a bill with an
-`rh` or `rs` text version), mean /
+versions counted"), bills summarized, bills reported by committee (distinct bills with a reported-stage record under the type
+filter and month brush, ignoring the stage select), mean /
 median / max lag in days.
 
 ## Histogram
@@ -60,7 +60,9 @@ median / max lag in days.
 Lag in days for filtered records that have a summary. Default filter: stage
 introduced, all bill types. Bins 30 days, last bin open-ended. Vertical rules
 for median and mean. Count label on each bar. One red bar at the right edge,
-"still waiting, n", so the censoring is visible rather than hidden.
+"still waiting, n", so the censoring is visible rather than hidden. The y scale is set by the
+tallest regular bin only; the waiting bar is drawn at full height with break marks and the label
+"n waiting (not to scale)", and its tooltip keeps the true count.
 
 ## Interaction ladder
 
@@ -72,6 +74,7 @@ for median and mean. Count label on each bar. One red bar at the right edge,
 5. polish: bin width 7 / 30 / 90, hover tooltip (bin range, count, share of
    filtered), keyboard-reachable controls
 6. cumulative bills with text vs bills with a CRS summary (the gap is the backlog)
+   Charts 6 and 7 use the same type filter and month brush as the cards; titles read "Selected months" under a brush, else "Congress to date".
 7. cumulative pages of text issued vs pages covered by a summary (follows the stage filter)
 
 State is one object; `render(state)` redraws everything from it.

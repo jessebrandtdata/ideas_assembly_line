@@ -1,13 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativePages, clampRange } from './metrics.js';
+import { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativePages, clampRange, histogramMax } from './metrics.js';
 
 const rec = (o) => ({ type: 'hr', number: '1', stage: 'introduced', text_date: '2025-01-10',
   summary_date: null, lag_days: null, pages: null, reported: false, title: 't', ...o });
 
 test('headerMetrics counts bills, summarized, waiting, reported, pages', () => {
   const m = headerMetrics([
-    rec({ number: '1', lag_days: 10, summary_date: '2025-01-20', pages: 5, reported: true }),
+    rec({ number: '1', lag_days: 10, summary_date: '2025-01-20', pages: 5 }),
+    rec({ number: '1', stage: 'reported', text_date: '2025-02-01' }),
     rec({ number: '2', lag_days: 30, summary_date: '2025-02-09', pages: null }),
     rec({ number: '3' }),
     rec({ number: '3', stage: null, pages: 7 }),
@@ -18,7 +19,7 @@ test('headerMetrics counts bills, summarized, waiting, reported, pages', () => {
   assert.equal(m.reported, 1);
   assert.equal(m.pagesTotal, 12);
   assert.equal(m.pagesCounted, 2);
-  assert.equal(m.versions, 4);
+  assert.equal(m.versions, 5);
   assert.equal(m.n, 2);
   assert.equal(m.lagMean, 20);
   assert.equal(m.lagMedian, 20);
@@ -154,4 +155,38 @@ test('clampRange: unchanged, clamped at one end, cleared', () => {
   assert.deepEqual(clampRange(['2025-01-01', '2025-03-31'], months), ['2025-02-01', '2025-03-31']);
   assert.equal(clampRange(['2026-01-01', '2026-02-28'], months), null);
   assert.equal(clampRange(null, months), null);
+});
+
+test('headerMetrics.reported counts distinct bills with a reported-stage record, even without an introduced record', () => {
+  const rs = [
+    rec({ number: '1', stage: 'reported', type: 'hr' }),
+    rec({ number: '1', stage: 'reported', type: 'hr', text_date: '2025-03-01' }), // second edition, same bill
+    rec({ number: '2', stage: 'introduced', reported: true }), // flag alone does not count
+    rec({ number: '3', stage: 'reported', type: 's', text_date: '2025-05-01' }),
+  ];
+  assert.equal(headerMetrics(rs).reported, 2);
+  const brushed = filterRecords(rs, { type: 'all', range: ['2025-04-01', '2025-06-30'] });
+  assert.equal(headerMetrics(brushed).reported, 1);
+});
+
+test('histogramMax is the tallest regular bin, so the waiting count cannot stretch the scale', () => {
+  const bins = binLags([rec({ lag_days: 5 }), rec({ lag_days: 6 }), rec({ lag_days: 40 })], 30);
+  const waiting = headerMetrics(Array.from({ length: 500 }, (_, i) => rec({ number: String(i + 10) }))).waiting;
+  assert.equal(waiting, 500);
+  assert.equal(histogramMax(bins), 2);
+  assert.equal(histogramMax([]), 1);
+});
+
+test('cumulativeSeries over a filtered subset ends at the headerMetrics of that subset', () => {
+  const rs = [
+    rec({ number: '1', text_date: '2025-04-02', lag_days: 10, summary_date: '2025-04-12' }),
+    rec({ number: '2', text_date: '2025-05-02' }),
+    rec({ number: '3', text_date: '2025-01-05', lag_days: 4, summary_date: '2025-01-09' }),
+    rec({ number: '4', text_date: '2025-11-05' }),
+  ];
+  const subset = filterRecords(rs, { stage: 'introduced', type: 'all', range: ['2025-04-01', '2025-10-31'] });
+  const m = headerMetrics(subset), end = cumulativeSeries(subset).at(-1);
+  assert.equal(end.summarized, m.summarized);
+  assert.equal(end.withText, m.summarized + m.waiting);
+  assert.equal(end.withText, 2);
 });

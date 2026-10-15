@@ -1,4 +1,4 @@
-import { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativePages, clampRange } from './metrics.js';
+import { headerMetrics, binLags, histogramMax, filterRecords, monthlySeries, cumulativeSeries, cumulativePages, clampRange } from './metrics.js';
 
 const BLUE = '#104378', RED = '#b2182b', INK = '#1f2933', MUTED = '#6b7280';
 let fmt; // assigned in main() once d3 is known to be loaded
@@ -12,11 +12,11 @@ function card(label, value, note = '') {
 
 function renderHeader(records, allVersions, stage) {
   const m = headerMetrics(records);
-  const p = headerMetrics(allVersions); // pages count every edition, not only the staged one
+  const p = headerMetrics(allVersions); // pages count every edition, not only the staged one; reported ignores the stage select
   document.getElementById('cards').innerHTML = [
     card('pages of bill text', fmt(p.pagesTotal), `${fmt(p.pagesCounted)} of ${fmt(p.versions)} versions counted`),
     card('bills summarized', fmt(m.summarized), `${fmt(m.waiting)} ${stage === 'all' ? 'bills with no summary at any stage' : 'still waiting'}`),
-    card('reported by committee', fmt(m.reported), 'bills with an rh/rs text version'),
+    card('reported by committee', fmt(p.reported), 'bills with an rh/rs text version'),
     card('mean lag (days)', day(m.lagMean), `n=${fmt(m.n)}`),
     card('median lag (days)', day(m.lagMedian)),
     card('max lag (days)', day(m.lagMax)),
@@ -45,8 +45,8 @@ function renderHistogram(records, width, stage) {
     .text(`Days from text to CRS summary, ${width}-day bins (n=${fmt(m.n)} ${stage === 'all' ? 'summaries' : 'summarized'}, ${fmt(m.waiting)} still waiting)`);
   const x = d3.scaleBand().domain([...bins.map((_, i) => i), 'waiting']).range([left, W - right]).padding(0.12);
   const unit = stage === 'all' ? 'summaries' : 'bills';
-  const y = d3.scaleLinear().domain([0, Math.max(d3.max(bins, (b) => b.count), m.waiting)]).nice().range([H - bottom, top]);
-  svg.append('g').attr('transform', `translate(${left},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(fmt))
+  const y = d3.scaleLinear().domain([0, histogramMax(bins)]).nice().range([H - bottom, top]);
+  svg.append('g').attr('transform', `translate(${left},0)`).call(d3.axisLeft(y).ticks(6).tickFormat(fmt))
     .call((g) => g.select('.domain').remove()).selectAll('text').attr('fill', MUTED);
   svg.append('g').attr('transform', `translate(0,${H - bottom})`)
     .call(d3.axisBottom(x).tickFormat((i) => (i === 'waiting' ? 'waiting' : bins[i].to === null ? `${bins[i].from}+` : `${bins[i].from}–${bins[i].to - 1}`)))
@@ -70,14 +70,22 @@ function renderHistogram(records, width, stage) {
   svg.append('g').selectAll('text').data(bins).join('text')
     .attr('x', (_, i) => x(i) + x.bandwidth() / 2).attr('y', (b) => y(b.count) - 4)
     .attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK).text((b) => (b.count ? fmt(b.count) : ''));
-  // the censoring, visible: one red bar for what has no summary yet, on the same y scale
+  // the censoring, visible: one red bar for what has no summary yet. Its true count is far taller than any bin,
+  // so it is drawn at full plot height with a broken-axis mark and does not set the y scale.
   const waitText = stage === 'all' ? `still waiting for a summary at any stage: ${fmt(m.waiting)} bills` : `still waiting for a summary: ${fmt(m.waiting)}`;
-  svg.append('rect').attr('x', x('waiting')).attr('y', y(m.waiting)).attr('width', x.bandwidth()).attr('height', y(0) - y(m.waiting))
+  const wx = x('waiting'), wy = m.waiting ? top : y(0);
+  svg.append('rect').attr('x', wx).attr('y', wy).attr('width', x.bandwidth()).attr('height', y(0) - wy)
     .attr('fill', RED).attr('rx', 2).on('mousemove', (event) => {
       d3.select('#tooltip').style('display', 'block').style('left', `${event.pageX + 12}px`).style('top', `${event.pageY - 10}px`).text(waitText);
     }).on('mouseleave', () => d3.select('#tooltip').style('display', 'none')).append('title').text(waitText);
-  svg.append('text').attr('x', x('waiting') + x.bandwidth() / 2).attr('y', y(m.waiting) - 4).attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', RED)
-    .text(m.waiting ? fmt(m.waiting) : '');
+  if (m.waiting) {
+    for (const dy of [top + 24, top + 32]) {
+      svg.append('line').attr('x1', wx - 3).attr('x2', wx + x.bandwidth() + 3).attr('y1', dy + 5).attr('y2', dy - 5)
+        .attr('stroke', '#fff').attr('stroke-width', 2.5);
+    }
+    svg.append('text').attr('x', W - right).attr('y', top - 22).attr('font-size', 11).attr('text-anchor', 'end').attr('fill', RED)
+      .text(`${fmt(m.waiting)} waiting (not to scale)`);
+  }
   // median and mean rules sit at their position inside the band scale
   const pos = (v) => { const i = Math.min(Math.floor(v / width), bins.length - 1); return x(i) + x.bandwidth() * Math.min(1, (v - i * width) / width); };
   for (const [v, label] of [[m.lagMedian, 'median'], [m.lagMean, 'mean']]) {
@@ -206,13 +214,14 @@ export function render(state) {
   renderPreText();
   renderHistogram(records, state.width, state.stage);
   renderTimeseries(unranged, state);
-  renderCumulative('#cumulative', cumulativeSeries(unranged), ['withText', 'summarized'], ['with text', 'summarized'],
-    'Congress to date: bills with text issued, and bills with a CRS summary. The gap is the backlog.', 'bills');
-  const allEditions = filterRecords(state.records, { stage: 'all', type: state.type, range: null });
+  const scope = state.range ? 'Selected months' : 'Congress to date';
+  renderCumulative('#cumulative', cumulativeSeries(records), ['withText', 'summarized'], ['with text', 'summarized'],
+    `${scope}: bills with text issued, and bills with a CRS summary. The gap is the backlog.`, 'bills');
+  const allEditions = filterRecords(state.records, { stage: 'all', type: state.type, range: state.range });
   const pagesSeries = cumulativePages(allEditions, state.stage);
   const uncounted = pagesSeries.length ? pagesSeries.at(-1).versionsWithoutPages : 0;
   renderCumulative('#cumulative-pages', pagesSeries, ['pagesIssued', 'pagesSummarized'], ['pages issued', 'pages summarized'],
-    'Congress to date: pages of bill text issued, and pages covered by a CRS summary.', 'pages',
+    `${scope}: pages of bill text issued, and pages covered by a CRS summary.`, 'pages',
     [uncounted ? `${fmt(uncounted)} versions not yet page-counted.` : '', state.stage !== 'all' ? `Summaries: ${state.stage} stage.` : ''].filter(Boolean).join(' '));
 }
 

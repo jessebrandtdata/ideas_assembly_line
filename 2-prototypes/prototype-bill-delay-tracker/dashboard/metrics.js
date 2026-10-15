@@ -20,7 +20,7 @@ export function headerMetrics(records) {
     bills: new Set(records.map(billKey)).size,
     summarized: summarizedBills.size,
     waiting: waitingBills.size,
-    reported: new Set(records.filter((r) => r.reported).map(billKey)).size,
+    reported: new Set(records.filter((r) => r.stage === 'reported').map(billKey)).size,
     pagesTotal: withPages.reduce((s, r) => s + r.pages, 0),
     pagesCounted: withPages.length,
     versions: records.length,
@@ -29,6 +29,11 @@ export function headerMetrics(records) {
     lagMedian: median(lags),
     lagMax: lags.length ? lags[lags.length - 1] : null,
   };
+}
+
+/** Top of the histogram y scale: the tallest regular bin only. The waiting bar never sets the scale (it is drawn broken). */
+export function histogramMax(bins) {
+  return Math.max(1, ...bins.map((b) => b.count));
 }
 
 /** Fixed-width bins of lag_days; the last bin is open-ended so nothing is dropped. */
