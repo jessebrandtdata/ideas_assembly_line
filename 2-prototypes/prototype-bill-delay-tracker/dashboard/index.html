@@ -16,6 +16,7 @@ h1 { margin: 0 0 4px; } .eyebrow { color: var(--muted); text-transform: uppercas
 .controls label { display: flex; flex-direction: column; gap: 4px; } .controls select, .controls button { font: inherit; padding: 4px 8px; }
 .controls [aria-pressed="true"] { background: var(--blue); color: #fff; border-color: var(--blue); }
 figure { margin: 0 0 24px; } figure svg { max-width: 100%; height: auto; display: block; }
+.presumm { font-size: 12px; color: var(--muted); margin: -8px 0 16px; }
 .caveat { background: #fff8e6; border-left: 4px solid #eec05e; padding: 10px 14px; font-size: 13px; }
 .error { color: var(--red); font-weight: 600; }
 .tooltip { position: absolute; pointer-events: none; background: var(--ink); color: #fff; font-size: 12px; padding: 6px 8px; border-radius: 4px; display: none; }
@@ -27,6 +28,7 @@ figure { margin: 0 0 24px; } figure svg { max-width: 100%; height: auto; display
 <p id="subtitle">Lag between a bill text version on GovInfo and its CRS summary on Congress.gov.</p>
 <div id="controls" class="controls"></div>
 <div id="cards" class="cards"></div>
+<p id="pre-text" class="presumm"></p>
 <figure id="histogram"></figure>
 <figure id="timeseries"></figure>
 <figure id="cumulative"></figure>

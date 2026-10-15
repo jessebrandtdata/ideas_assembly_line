@@ -1,26 +1,33 @@
-import { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativePages } from './metrics.js';
+import { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativePages, clampRange } from './metrics.js';
 
 const BLUE = '#104378', RED = '#b2182b', INK = '#1f2933', MUTED = '#6b7280';
-const fmt = d3.format(',');
+let fmt; // assigned in main() once d3 is known to be loaded
 const day = (v) => (v === null ? '–' : `${Math.round(v)}`);
 
-const state = { records: [], stage: 'introduced', type: 'all', range: null, width: 30 };
+const state = { records: [], summaryBefore: {}, stage: 'introduced', type: 'all', range: null, width: 30 };
 
 function card(label, value, note = '') {
   return `<div class="card"><div class="value">${value}</div><div class="label">${label}</div><div class="note">${note}</div></div>`;
 }
 
-function renderHeader(records, allVersions) {
+function renderHeader(records, allVersions, stage) {
   const m = headerMetrics(records);
   const p = headerMetrics(allVersions); // pages count every edition, not only the staged one
   document.getElementById('cards').innerHTML = [
     card('pages of bill text', fmt(p.pagesTotal), `${fmt(p.pagesCounted)} of ${fmt(p.versions)} versions counted`),
-    card('bills summarized', fmt(m.summarized), `${fmt(m.waiting)} still waiting`),
+    card('bills summarized', fmt(m.summarized), `${fmt(m.waiting)} ${stage === 'all' ? 'bills with no summary at any stage' : 'still waiting'}`),
     card('reported by committee', fmt(m.reported), 'bills with an rh/rs text version'),
     card('mean lag (days)', day(m.lagMean), `n=${fmt(m.n)}`),
     card('median lag (days)', day(m.lagMedian)),
     card('max lag (days)', day(m.lagMax)),
   ].join('');
+}
+
+function renderPreText() {
+  const entries = Object.entries(state.summaryBefore);
+  const total = entries.reduce((a, [, n]) => a + n, 0);
+  document.getElementById('pre-text').textContent = total
+    ? `${fmt(total)} summaries exist for bills whose text GovInfo has not posted at that stage (${entries.map(([k, n]) => `${fmt(n)} ${k}`).join(', ')}).` : '';
 }
 
 function renderHistogram(records, width, stage) {
@@ -35,18 +42,19 @@ function renderHistogram(records, width, stage) {
   const svg = fig.append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
     .attr('aria-label', 'Histogram of lag in days');
   svg.append('text').attr('x', left).attr('y', 13).attr('font-size', 14).attr('font-weight', 600).attr('fill', INK)
-    .text(`Days from text to CRS summary, ${width}-day bins (n=${fmt(m.n)} ${stage === 'all' ? 'summaries' : 'summarized'}; ${fmt(m.waiting)} still waiting, not shown)`);
-  const x = d3.scaleBand().domain(bins.map((_, i) => i)).range([left, W - right]).padding(0.12);
-  const y = d3.scaleLinear().domain([0, d3.max(bins, (b) => b.count)]).nice().range([H - bottom, top]);
+    .text(`Days from text to CRS summary, ${width}-day bins (n=${fmt(m.n)} ${stage === 'all' ? 'summaries' : 'summarized'}, ${fmt(m.waiting)} still waiting)`);
+  const x = d3.scaleBand().domain([...bins.map((_, i) => i), 'waiting']).range([left, W - right]).padding(0.12);
+  const unit = stage === 'all' ? 'summaries' : 'bills';
+  const y = d3.scaleLinear().domain([0, Math.max(d3.max(bins, (b) => b.count), m.waiting)]).nice().range([H - bottom, top]);
   svg.append('g').attr('transform', `translate(${left},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(fmt))
     .call((g) => g.select('.domain').remove()).selectAll('text').attr('fill', MUTED);
   svg.append('g').attr('transform', `translate(0,${H - bottom})`)
-    .call(d3.axisBottom(x).tickFormat((i) => (bins[i].to === null ? `${bins[i].from}+` : `${bins[i].from}–${bins[i].to - 1}`)))
+    .call(d3.axisBottom(x).tickFormat((i) => (i === 'waiting' ? 'waiting' : bins[i].to === null ? `${bins[i].from}+` : `${bins[i].from}–${bins[i].to - 1}`)))
     .call((g) => g.select('.domain').remove()).selectAll('text').attr('fill', MUTED).attr('font-size', 9);
   svg.append('text').attr('x', (left + W - right) / 2).attr('y', H - 14).attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK)
     .text('lag in days');
   svg.append('text').attr('transform', `translate(14,${(top + H - bottom) / 2}) rotate(-90)`).attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK)
-    .text('bills');
+    .text(unit);
   svg.append('g').selectAll('rect').data(bins).join('rect')
     .attr('x', (_, i) => x(i)).attr('y', (b) => y(b.count)).attr('width', x.bandwidth())
     .attr('height', (b) => y(0) - y(b.count)).attr('fill', BLUE).attr('rx', 2)
@@ -54,14 +62,22 @@ function renderHistogram(records, width, stage) {
       const share = m.n ? (b.count / m.n) : 0;
       const range = b.to === null ? `${b.from}+ days` : `${b.from}–${b.to - 1} days`;
       d3.select('#tooltip').style('display', 'block').style('left', `${event.pageX + 12}px`).style('top', `${event.pageY - 10}px`)
-        .text(`${range}: ${fmt(b.count)} bills (${d3.format('.1%')(share)} of summarized)`);
+        .text(`${range}: ${fmt(b.count)} ${unit} (${d3.format('.1%')(share)} of ${stage === 'all' ? 'summaries' : 'summarized'})`);
     })
     .on('mouseleave', () => d3.select('#tooltip').style('display', 'none'));
-  svg.selectAll('rect').filter((b) => b && 'count' in b).append('title')
-    .text((b) => `${b.to === null ? `${b.from}+` : `${b.from}–${b.to - 1}`} days: ${fmt(b.count)} bills`);
+  svg.selectAll('rect').filter((b) => b && typeof b === 'object' && 'count' in b).append('title')
+    .text((b) => `${b.to === null ? `${b.from}+` : `${b.from}–${b.to - 1}`} days: ${fmt(b.count)} ${unit}`);
   svg.append('g').selectAll('text').data(bins).join('text')
     .attr('x', (_, i) => x(i) + x.bandwidth() / 2).attr('y', (b) => y(b.count) - 4)
     .attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK).text((b) => (b.count ? fmt(b.count) : ''));
+  // the censoring, visible: one red bar for what has no summary yet, on the same y scale
+  const waitText = stage === 'all' ? `still waiting for a summary at any stage: ${fmt(m.waiting)} bills` : `still waiting for a summary: ${fmt(m.waiting)}`;
+  svg.append('rect').attr('x', x('waiting')).attr('y', y(m.waiting)).attr('width', x.bandwidth()).attr('height', y(0) - y(m.waiting))
+    .attr('fill', RED).attr('rx', 2).on('mousemove', (event) => {
+      d3.select('#tooltip').style('display', 'block').style('left', `${event.pageX + 12}px`).style('top', `${event.pageY - 10}px`).text(waitText);
+    }).on('mouseleave', () => d3.select('#tooltip').style('display', 'none')).append('title').text(waitText);
+  svg.append('text').attr('x', x('waiting') + x.bandwidth() / 2).attr('y', y(m.waiting) - 4).attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', RED)
+    .text(m.waiting ? fmt(m.waiting) : '');
   // median and mean rules sit at their position inside the band scale
   const pos = (v) => { const i = Math.min(Math.floor(v / width), bins.length - 1); return x(i) + x.bandwidth() * Math.min(1, (v - i * width) / width); };
   for (const [v, label] of [[m.lagMedian, 'median'], [m.lagMean, 'mean']]) {
@@ -172,24 +188,28 @@ function renderCumulative(target, series, keys, labels, title, yLabel, note = ''
   svg.append('g').attr('transform', `translate(0,${H - bottom})`).call(d3.axisBottom(x).ticks(d3.utcMonth.every(2)).tickFormat(d3.utcFormat('%b %Y'))).call((g) => g.select('.domain').remove());
   svg.append('text').attr('transform', `translate(14,${(top + H - bottom) / 2}) rotate(-90)`).attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK).text(yLabel);
   const line = (key) => d3.line().curve(d3.curveStepAfter).x((s) => x(parse(s.date))).y((s) => y(s[key]));
-  svg.append('path').datum(series).attr('d', line(keys[0])).attr('fill', 'none').attr('stroke', BLUE).attr('stroke-width', 2);
-  svg.append('path').datum(series).attr('d', line(keys[1])).attr('fill', 'none').attr('stroke', RED).attr('stroke-width', 2);
+  const gap = d3.area().curve(d3.curveStepAfter).x((s) => x(parse(s.date))).y0((s) => y(s[keys[1]])).y1((s) => y(s[keys[0]]));
+  svg.append('path').datum(series).attr('d', gap).attr('fill', RED).attr('fill-opacity', 0.12);
+  svg.append('path').datum(series).attr('d', line(keys[0])).attr('fill', 'none').attr('stroke', INK).attr('stroke-width', 2);
+  svg.append('path').datum(series).attr('d', line(keys[1])).attr('fill', 'none').attr('stroke', BLUE).attr('stroke-width', 2);
   const last = series[series.length - 1];
-  svg.append('text').attr('x', W - right).attr('y', y(last[keys[0]]) - 6).attr('font-size', 11).attr('text-anchor', 'end').attr('fill', BLUE).text(`${fmt(last[keys[0]])} ${labels[0]}`);
-  svg.append('text').attr('x', W - right).attr('y', y(last[keys[1]]) - 6).attr('font-size', 11).attr('text-anchor', 'end').attr('fill', RED).text(`${fmt(last[keys[1]])} ${labels[1]}`);
+  svg.append('text').attr('x', W - right).attr('y', y(last[keys[0]]) - 6).attr('font-size', 11).attr('text-anchor', 'end').attr('fill', INK).text(`${fmt(last[keys[0]])} ${labels[0]}`);
+  svg.append('text').attr('x', W - right).attr('y', y(last[keys[1]]) - 6).attr('font-size', 11).attr('text-anchor', 'end').attr('fill', BLUE).text(`${fmt(last[keys[1]])} ${labels[1]}`);
 }
 
 export function render(state) {
   renderControls(state);
-  const records = filterRecords(state.records, state);
-  renderHeader(records, filterRecords(state.records, { stage: 'all', type: state.type, range: state.range }));
-  renderHistogram(records, state.width, state.stage);
-  renderTimeseries(filterRecords(state.records, { stage: state.stage, type: state.type, range: null }), state);
   const unranged = filterRecords(state.records, { stage: state.stage, type: state.type, range: null });
+  state.range = clampRange(state.range, monthlySeries(unranged).map((s) => s.month)); // a stale brush must not filter invisibly
+  const records = filterRecords(state.records, state);
+  renderHeader(records, filterRecords(state.records, { stage: 'all', type: state.type, range: state.range }), state.stage);
+  renderPreText();
+  renderHistogram(records, state.width, state.stage);
+  renderTimeseries(unranged, state);
   renderCumulative('#cumulative', cumulativeSeries(unranged), ['withText', 'summarized'], ['with text', 'summarized'],
     'Congress to date: bills with text issued, and bills with a CRS summary. The gap is the backlog.', 'bills');
   const allEditions = filterRecords(state.records, { stage: 'all', type: state.type, range: null });
-  const pagesSeries = cumulativePages(allEditions);
+  const pagesSeries = cumulativePages(allEditions, state.stage);
   const uncounted = pagesSeries.length ? pagesSeries.at(-1).versionsWithoutPages : 0;
   renderCumulative('#cumulative-pages', pagesSeries, ['pagesIssued', 'pagesSummarized'], ['pages issued', 'pages summarized'],
     'Congress to date: pages of bill text issued, and pages covered by a CRS summary.', 'pages',
@@ -198,15 +218,27 @@ export function render(state) {
 
 async function main() {
   try {
+    if (typeof d3 === 'undefined') throw new Error('d3 failed to load');
+    fmt = d3.format(',');
     const res = await fetch('../data/delays.json');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const doc = await res.json();
+    if (!Array.isArray(doc.records)) throw new Error('delays.json has no records array');
     state.records = doc.records;
+    state.summaryBefore = doc.summary_before_text || {};
     document.getElementById('subtitle').textContent =
       `Lag between a bill text version on GovInfo and its CRS summary on Congress.gov, ${doc.congress}th Congress, as of ${doc.as_of}.`;
     render(state);
   } catch (err) {
-    document.getElementById('cards').innerHTML = `<p class="error">Could not load data/delays.json (${err.message}). Run delays.py first.</p>`;
+    document.getElementById('controls').innerHTML = '';
+    document.querySelectorAll('figure').forEach((f) => { f.innerHTML = ''; });
+    document.getElementById('pre-text').textContent = '';
+    const cards = document.getElementById('cards');
+    cards.innerHTML = '';
+    const p = document.createElement('p');
+    p.className = 'error';
+    p.textContent = `Could not load data/delays.json (${err.message}). Run delays.py first.`;
+    cards.appendChild(p);
   }
 }
 

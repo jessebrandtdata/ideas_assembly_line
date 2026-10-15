@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativePages } from './metrics.js';
+import { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativePages, clampRange } from './metrics.js';
 
 const rec = (o) => ({ type: 'hr', number: '1', stage: 'introduced', text_date: '2025-01-10',
   summary_date: null, lag_days: null, pages: null, reported: false, title: 't', ...o });
@@ -116,4 +116,42 @@ test('cumulativePages sums pages issued and pages of summarized bills by date', 
     { date: '2025-02-01', pagesIssued: 22, pagesSummarized: 10, versionsWithoutPages: 1 },
   ]);
   assert.deepEqual(cumulativePages([]), []);
+});
+
+test('headerMetrics: summarized + waiting === bills; a bill summarized at one stage is not waiting at another', () => {
+  const m = headerMetrics([
+    rec({ number: '1', stage: 'introduced', lag_days: 10, summary_date: '2025-01-20' }),
+    rec({ number: '1', stage: 'reported' }),
+    rec({ number: '2' }),
+    rec({ number: '2', stage: null, pages: 3 }),
+  ]);
+  assert.equal(m.bills, 2);
+  assert.equal(m.summarized, 1);
+  assert.equal(m.waiting, 1);
+  assert.equal(m.summarized + m.waiting, m.bills);
+});
+
+test('binLags floors a negative lag into the first bin', () => {
+  const bins = binLags([rec({ lag_days: -3 }), rec({ lag_days: 40 })], 30);
+  assert.deepEqual(bins, [{ from: 0, to: 30, count: 1 }, { from: 30, to: 60, count: 1 }]);
+});
+
+test('cumulativePages follows the stage filter for summarized pages only', () => {
+  const rs = [
+    rec({ number: '1', stage: 'introduced', text_date: '2025-01-03', summary_date: '2025-01-20', lag_days: 17, pages: 10 }),
+    rec({ number: '1', stage: 'reported', text_date: '2025-02-01', summary_date: '2025-02-10', lag_days: 9, pages: 5 }),
+  ];
+  const last = (st) => cumulativePages(rs, st).at(-1);
+  assert.equal(last('all').pagesSummarized, 15);
+  assert.equal(last('reported').pagesSummarized, 5);
+  assert.equal(last('reported').pagesIssued, 15); // issued still counts the introduced-stage record
+  assert.equal(last('passed').pagesSummarized, 0);
+});
+
+test('clampRange: unchanged, clamped at one end, cleared', () => {
+  const months = ['2025-02', '2025-03', '2025-04'];
+  assert.deepEqual(clampRange(['2025-02-01', '2025-04-30'], months), ['2025-02-01', '2025-04-30']);
+  assert.deepEqual(clampRange(['2025-01-01', '2025-03-31'], months), ['2025-02-01', '2025-03-31']);
+  assert.equal(clampRange(['2026-01-01', '2026-02-28'], months), null);
+  assert.equal(clampRange(null, months), null);
 });

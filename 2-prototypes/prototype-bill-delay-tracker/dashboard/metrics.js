@@ -8,15 +8,18 @@ function median(sorted) {
   return n % 2 ? sorted[(n - 1) / 2] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2;
 }
 
-/** Header-row numbers over the records in view. lag* are null when nothing is summarized. */
+/** Header-row numbers over the records in view. lag* are null when nothing is summarized.
+ *  waiting = distinct bills with a staged record and no summary in the set, so summarized + waiting === bills. */
 export function headerMetrics(records) {
+  const summarizedBills = new Set(records.filter((r) => r.lag_days !== null).map(billKey));
+  const waitingBills = new Set(records.filter((r) => r.stage !== null && !summarizedBills.has(billKey(r))).map(billKey));
   const summarized = records.filter((r) => r.lag_days !== null);
   const lags = summarized.map((r) => r.lag_days).sort((a, b) => a - b);
   const withPages = records.filter((r) => r.pages !== null);
   return {
     bills: new Set(records.map(billKey)).size,
-    summarized: new Set(summarized.map(billKey)).size,
-    waiting: records.filter((r) => r.stage !== null && r.lag_days === null).length,
+    summarized: summarizedBills.size,
+    waiting: waitingBills.size,
     reported: new Set(records.filter((r) => r.reported).map(billKey)).size,
     pagesTotal: withPages.reduce((s, r) => s + r.pages, 0),
     pagesCounted: withPages.length,
@@ -37,8 +40,7 @@ export function binLags(records, width, maxBins = 20) {
   const bins = Array.from({ length: count }, (_, i) => ({
     from: i * width, to: i === count - 1 && needed > count ? null : (i + 1) * width, count: 0,
   }));
-  for (const lag of lags) bins[Math.min(Math.floor(lag / width), count - 1)].count += 1;
-  if (needed > count) bins[count - 1].to = null;
+  for (const lag of lags) bins[Math.min(Math.max(0, Math.floor(lag / width)), count - 1)].count += 1;
   return bins;
 }
 
@@ -86,18 +88,27 @@ export function cumulativeSeries(records) {
   return dates.map((date) => ({ date, withText: countLE(textDates, date), summarized: countLE(summaryDates, date) }));
 }
 
-/** Running page totals: pages of every text version issued, and pages of the staged versions whose summary has arrived. */
-export function cumulativePages(records) {
+/** Running page totals (summaries restricted to `stage` unless 'all'): pages of every text version issued, and pages of the staged versions whose summary has arrived. */
+export function cumulativePages(records, stage = 'all') {
   const issued = [], summarized = [], missing = [];
   for (const r of records) {
     if (r.pages === null) missing.push(r.text_date);
     else {
       issued.push([r.text_date, r.pages]);
-      if (r.stage !== null && r.summary_date !== null) summarized.push([r.summary_date, r.pages]);
+      if (r.stage !== null && r.summary_date !== null && (stage === 'all' || r.stage === stage)) summarized.push([r.summary_date, r.pages]);
     }
   }
   const dates = [...new Set([...issued.map((p) => p[0]), ...summarized.map((p) => p[0]), ...missing])].sort();
   const running = (pairs) => { const sorted = pairs.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)); let i = 0, sum = 0; return (d) => { while (i < sorted.length && sorted[i][0] <= d) sum += sorted[i++][1]; return sum; }; };
   const pi = running(issued), ps = running(summarized), pm = running(missing.map((d) => [d, 1]));
   return dates.map((date) => ({ date, pagesIssued: pi(date), pagesSummarized: ps(date), versionsWithoutPages: pm(date) }));
+}
+
+/** Clamp a brushed [fromISO, toISO] range to the months (YYYY-MM, sorted) present; null when none fall inside. */
+export function clampRange(range, months) {
+  if (range === null) return null;
+  const lastDay = (m) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10); };
+  const inside = months.filter((m) => `${m}-01` <= range[1] && lastDay(m) >= range[0]);
+  if (inside.length === 0) return null;
+  return [`${inside[0]}-01`, lastDay(inside[inside.length - 1])];
 }
