@@ -44,6 +44,16 @@ python3 report.py
 
 `collect.py --help` lists the caps. Rerunning only fetches what is new.
 
+## Live result, snapshot of 2026-10-14
+
+`data/` and `report.html` in the prototype folder are a real run against the 119th Congress (collected 2026-10-15, complete sweeps: 19,982 text versions from GovInfo, 5,337 CRS summary versions from Congress.gov, page counts for the 600 newest versions).
+
+- 16,873 bills have text; 5,195 have at least one CRS summary; 11,989 introduced bills have no introduced-stage summary yet.
+- Introduced text to introduced summary: n=4,779, median 106 days, mean 167.1 days, max 626 days (subject to the last-update caveat below).
+- 1,217 bills have a reported (rh/rs) text version.
+
+Regenerate with the three commands in "How to run it"; `collect.py` only fetches what is new.
+
 ## Known limitations
 
 - Lag is measured to the summary's **last update** date, the only date the Congress.gov API exposes, so a summary CRS revised later overstates the lag. The report says so on the page.

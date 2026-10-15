@@ -141,15 +141,16 @@ SUMMARY_FIELDS = ["congress", "bill_type", "number", "version_code", "action_des
 
 
 def collect_summaries(data_dir, key, congress, since, max_requests, page_size):
-    """Sweep /summaries/{congress}/{type} newest-first. Resumable by stopping at the
-    newest update_date already on disk."""
+    """Sweep /summaries/{congress}/{type} newest-first. Resumable: rows on disk are a
+    newest-first prefix of the API's list, so after re-reading the first page (which
+    catches summaries added since) a page with nothing new jumps to the end of the prefix."""
     path = data_dir / "summaries.csv"
     rows = read_csv(path)
     seen = {(r["bill_type"], r["number"], r["version_code"]) for r in rows}
     n = 0
     for bt in BILL_TYPES:
         offset = 0
-        newest_known = max((r["update_date"] for r in rows if r["bill_type"] == bt), default="")
+        known = sum(1 for r in rows if r["bill_type"] == bt)
         while n < max_requests:
             n += 1
             q = urllib.parse.urlencode({"format": "json", "limit": page_size, "offset": offset,
@@ -159,13 +160,9 @@ def collect_summaries(data_dir, key, congress, since, max_requests, page_size):
                 break
             items = page.get("summaries", [])
             new = 0
-            stop = False
             for s in items:
                 b = s.get("bill", {})
                 k = (b.get("type", "").lower(), str(b.get("number", "")), s.get("versionCode", ""))
-                if s.get("updateDate", "") < newest_known:
-                    stop = True
-                    break
                 if k in seen:
                     continue
                 rows.append({"congress": str(b.get("congress", congress)), "bill_type": k[0], "number": k[1],
@@ -178,9 +175,10 @@ def collect_summaries(data_dir, key, congress, since, max_requests, page_size):
             total = (page or {}).get("pagination", {}).get("count", "?")
             print(f"summaries/{bt}: offset {offset}, {len(items)} items, {new} new, api total {total}", file=sys.stderr)
             write_csv(path, rows, SUMMARY_FIELDS)
-            offset += page_size
-            if stop or len(items) < page_size:
+            known += new
+            if len(items) < page_size:
                 break
+            offset = known if new == 0 and known > offset + page_size else offset + page_size
     return rows
 
 
