@@ -44,7 +44,8 @@ Fetches `../data/delays.json` relative to the page. Opens from
 `python3 -m http.server` in the prototype folder.
 
 Header row, recomputed from the filtered records: pages processed (with "n of m
-versions counted"), bills summarized, bills reported by committee, mean /
+versions counted"), bills summarized, bills reported by committee (a bill with an
+`rh` or `rs` text version), mean /
 median / max lag in days.
 
 ## Histogram
