@@ -71,7 +71,7 @@ title names both counts either way. The strip under the chart holds the slider (
 1. data contract (`delays.json`, test)
 2. histogram + header row (static page; minimal hand-over)
 3. filters: stage (default "All stages", listed first) and bill type `<select>`s; header and histogram re-render
-4. timeseries by month introduced under the histogram; the date range is set in
+4. stacked share bars (summarized vs waiting) by month the text was issued, under the histogram; there is deliberately no median / 90th-percentile lag-over-time panel, since recent months are right-censored and the lines would mislead; the date range is set in
    the top controls row (Introduced from / to, two `<input type="date">`s whose `min`/`max` are the earliest and
    latest text date in the data, derived from the records; empty = open side; day precision, inclusive of both
    days, on the text version's issue date; "Clear date filters" resets both; from after to = no range).

@@ -146,19 +146,19 @@ const currentRecords = (state) => filterRecords(state.records, state);
 
 function renderTimeseries(records, state) {
   const series = monthlySeries(records);
-  const W = 920, left = 76, right = 16, topY = 52, topH = 150, botY = 290, botH = 170, H = botY + botH + 60;
+  const W = 920, left = 76, right = 16, topY = 40, topH = 170, H = topY + topH + 60;
   const fig = d3.select('#timeseries').html('');
   if (series.length === 0) return;
-  const svg = fig.append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Lag by month of introduction');
+  const svg = fig.append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Share of bills with a CRS summary, by month the text was issued');
   svg.append('text').attr('x', left).attr('y', 18).attr('font-size', 14).attr('font-weight', 600).attr('fill', INK)
-    .text('By month the text was issued: share with a CRS summary, and lag among those summarized.');
+    .text('By month the text was issued: share with a CRS summary.');
   const x = d3.scaleBand().domain(series.map((s) => s.month)).range([left, W - right]).padding(0.18);
   const sel = activeRange(state.range);
   if (sel) { // shaded band behind everything: every month band the selected days touch (a partial month is shaded whole)
     const inside = series.filter((s) => (!sel.from || s.month >= sel.from.slice(0, 7)) && (!sel.to || s.month <= sel.to.slice(0, 7)));
     if (inside.length) {
       const x0 = x(inside[0].month) - x.step() * x.paddingInner() / 2, x1 = x(inside.at(-1).month) + x.bandwidth() + x.step() * x.paddingInner() / 2;
-      svg.append('rect').attr('id', 'month-band').attr('x', x0).attr('y', topY).attr('width', x1 - x0).attr('height', botY + botH - topY)
+      svg.append('rect').attr('id', 'month-band').attr('x', x0).attr('y', topY).attr('width', x1 - x0).attr('height', topH + 34)
         .attr('fill', MUTED).attr('fill-opacity', 0.15);
     }
   }
@@ -182,16 +182,6 @@ function renderTimeseries(records, state) {
     .attr('y', (s) => yShare(s.summarized / (s.summarized + s.waiting || 1))).attr('height', (s) => topY + topH - yShare(s.summarized / (s.summarized + s.waiting || 1)));
   bars.append('title').text((s) => `${s.month}: ${fmt(s.summarized)} summarized, ${fmt(s.waiting)} waiting`);
   monthAxis(topY + topH + 14);
-  // bottom: lag lines
-  const yMax = d3.max(series, (s) => s.p90Lag ?? 0) || 1;
-  const yLag = d3.scaleLinear().domain([0, yMax]).nice().range([botY + botH, botY]);
-  svg.append('g').attr('transform', `translate(${left},0)`).call(d3.axisLeft(yLag).ticks(5)).call((g) => g.select('.domain').remove());
-  svg.append('text').attr('transform', `translate(14,${botY + botH / 2}) rotate(-90)`).attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK).text('Days, text to CRS summary');
-  const line = (key) => d3.line().defined((s) => s[key] !== null).x((s) => x(s.month) + x.bandwidth() / 2).y((s) => yLag(s[key]));
-  svg.append('path').datum(series).attr('d', line('p90Lag')).attr('fill', 'none').attr('stroke', MUTED).attr('stroke-width', 2).attr('stroke-dasharray', '4 3');
-  svg.append('path').datum(series).attr('d', line('medianLag')).attr('fill', 'none').attr('stroke', BLUE).attr('stroke-width', 2);
-  svg.append('text').attr('x', left).attr('y', botY - 6).attr('font-size', 11).attr('fill', INK).text('— median   ┄ 90th percentile   (lag among the bills summarized so far; recent months are right-censored)');
-  monthAxis(botY + botH + 14);
 }
 
 function renderCumulative(target, series, keys, labels, title, yLabel, note = '') {

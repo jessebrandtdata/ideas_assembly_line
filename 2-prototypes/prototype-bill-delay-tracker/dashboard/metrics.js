@@ -69,25 +69,17 @@ export function dateBounds(records) {
   return { min, max };
 }
 
-/** Per month of text_date: how many got a summary, how many wait, and lag quantiles among the summarized. */
+/** Per month of text_date: how many got a summary and how many wait. */
 export function monthlySeries(records) {
   const byMonth = new Map();
   for (const r of records) {
     if (r.stage === null) continue; // later editions never get a summary of their own
     const month = r.text_date.slice(0, 7);
-    if (!byMonth.has(month)) byMonth.set(month, { lags: [], waiting: 0 });
+    if (!byMonth.has(month)) byMonth.set(month, { summarized: 0, waiting: 0 });
     const m = byMonth.get(month);
-    if (r.lag_days === null) m.waiting += 1; else m.lags.push(r.lag_days);
+    if (r.lag_days === null) m.waiting += 1; else m.summarized += 1;
   }
-  return [...byMonth.keys()].sort().map((month) => {
-    const { lags, waiting } = byMonth.get(month);
-    const sorted = lags.sort((a, b) => a - b);
-    return {
-      month, summarized: sorted.length, waiting,
-      medianLag: median(sorted),
-      p90Lag: sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.9))] : null,
-    };
-  });
+  return [...byMonth.keys()].sort().map((month) => ({ month, ...byMonth.get(month) }));
 }
 
 /** Running counts of distinct bills with any text and with any summary, by date. */

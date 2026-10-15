@@ -79,7 +79,7 @@ test('filterRecords honours day ranges: from-only, to-only, both inclusive at th
   assert.deepEqual(nums({ from: null, to: null }), ['0', '1', '2', '3']);
 });
 
-test('monthlySeries groups by month of text_date with lag quantiles', () => {
+test('monthlySeries groups by month of text_date into summarized and waiting counts', () => {
   const s = monthlySeries([
     rec({ number: '1', text_date: '2025-01-03', lag_days: 10 }),
     rec({ number: '2', text_date: '2025-01-20', lag_days: 30 }),
@@ -88,8 +88,8 @@ test('monthlySeries groups by month of text_date with lag quantiles', () => {
     rec({ number: '5', stage: null, text_date: '2025-01-28', pages: 3 }), // later edition: never counted
   ]);
   assert.deepEqual(s, [
-    { month: '2025-01', summarized: 2, waiting: 1, medianLag: 20, p90Lag: 30 },
-    { month: '2025-03', summarized: 0, waiting: 1, medianLag: null, p90Lag: null },
+    { month: '2025-01', summarized: 2, waiting: 1 },
+    { month: '2025-03', summarized: 0, waiting: 1 },
   ]);
   assert.deepEqual(monthlySeries([]), []);
 });
