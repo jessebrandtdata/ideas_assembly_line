@@ -17,7 +17,11 @@ h1 { margin: 0 0 4px; } .eyebrow { color: var(--muted); text-transform: uppercas
 .strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; margin: 4px 0 0 56px; font-size: 13px; }
 .strip label.check { display: flex; align-items: center; gap: 6px; }
 .slider { display: flex; align-items: center; gap: 10px; font-size: 13px; } .slider input { width: min(360px, 60%); }
-figure { margin: 0 0 24px; } figure svg { max-width: 100%; height: auto; display: block; }
+figure { margin: 0 0 24px; display: flex; flex-direction: column; }
+.export-row { order: -1; display: flex; justify-content: flex-end; gap: 4px; min-height: 20px; }
+.export-row button, .heading-row button { font: inherit; font-size: 12px; color: var(--muted); background: none; border: 0; padding: 2px 6px; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.export-row button:hover, .heading-row button:hover, .export-row button:focus-visible, .heading-row button:focus-visible { color: var(--blue); }
+.heading-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; } figure svg { max-width: 100%; height: auto; display: block; }
 .presumm { font-size: 12px; color: var(--muted); margin: -8px 0 16px; }
 .lists h2 { font-size: 18px; margin: 0 0 4px; }
 .lists section { margin: 0 0 24px; }
@@ -49,13 +53,14 @@ figure { margin: 0 0 24px; } figure svg { max-width: 100%; height: auto; display
     <label class="slider">Bin width <input type="range" id="bin-width" min="7" max="90" step="1" value="30" aria-label="Bin width in days"> <span id="bin-width-label">30-day bins</span></label>
     <label class="check"><input type="checkbox" id="include-waiting" checked>Include bills still waiting for a summary</label>
   </div>
+  <div class="export-row" data-figure="histogram" data-label="histogram"></div>
 </figure>
-<figure id="timeseries"></figure>
-<figure id="cumulative"></figure>
-<figure id="cumulative-pages"></figure>
+<figure id="timeseries"><div class="export-row" data-figure="timeseries" data-label="share by month"></div><div class="chart"></div></figure>
+<figure id="cumulative"><div class="export-row" data-figure="cumulative" data-label="cumulative bills"></div><div class="chart"></div></figure>
+<figure id="cumulative-pages"><div class="export-row" data-figure="cumulative-pages" data-label="cumulative pages"></div><div class="chart"></div></figure>
 <div class="lists">
-<section id="longest-lags"><h2>Longest lags</h2><div class="table-wrap"></div></section>
-<section id="oldest-waiting"><h2>Oldest bills still waiting</h2><div class="table-wrap"></div></section>
+<section id="longest-lags"><div class="heading-row"><h2>Longest lags</h2><button type="button" data-csv="longest-lags" aria-label="Download longest lags as CSV">Download CSV</button></div><div class="table-wrap"></div></section>
+<section id="oldest-waiting"><div class="heading-row"><h2>Oldest bills still waiting</h2><button type="button" data-csv="oldest-waiting" aria-label="Download oldest waiting bills as CSV">Download CSV</button></div><div class="table-wrap"></div></section>
 </div>
 <div class="caveat">Lag is measured to the summary's last-update date, the only date the Congress.gov API exposes; a summary revised later reads slower than it was. The text date is the date printed on the version. "Waiting" means no summary at that stage appears in the data collected.</div>
 <div id="tooltip" class="tooltip"></div>

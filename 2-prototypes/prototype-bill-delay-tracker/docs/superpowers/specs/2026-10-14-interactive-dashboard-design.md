@@ -50,9 +50,10 @@ stays for the Python report.
 Fetches `../data/delays.json` relative to the page. Opens from
 `python3 -m http.server` in the prototype folder.
 
-Header row, recomputed from the filtered records: pages processed (with "n of m
-versions counted"), bills summarized, bills reported by committee (distinct bills with a reported-stage record under the type
-filter and date range, ignoring the stage select), mean /
+Header row, recomputed from the filtered records: pages of bill text (with "n of m
+<stage> versions counted"; at a stage it totals that stage's text versions only, at
+all stages every edition including unmapped ones), bills summarized, bills reported by committee (distinct bills with a reported-stage record under the type
+filter and date range, ignoring the stage select; subtitle "bills with an rh/rs text version (any stage)"), mean /
 median / max lag in days.
 
 Foot of the page, after the cumulative pages chart and before the caveat: two
@@ -92,7 +93,7 @@ title names both counts either way. The strip under the chart holds the slider (
    filtered), keyboard-reachable controls
 6. cumulative bills with text vs bills with a CRS summary (the gap is the backlog)
    Charts 6 and 7 use the same type filter and date range as the cards; titles read "Congress to date", or name the range ("3 Mar 2025 – 30 Jun 2025", "from 3 Mar 2025", "to 30 Jun 2025").
-7. cumulative pages of text issued vs pages covered by a summary (follows the stage filter)
+7. cumulative pages of text issued vs pages covered by a summary (follows the stage filter: at a stage, both lines cover only that stage's text versions, summarized being those with a summary; at all stages, issued counts every edition and summarized the staged records with a summary)
 
 State is one object; `render(state)` redraws everything from it.
 
@@ -107,3 +108,10 @@ Missing or malformed JSON shows one message in the page; nothing partial.
 - `dashboard/metrics.test.mjs` (`node --test`): pure functions in `metrics.js`
   (binning, header metrics) without a browser.
 - Headless-chromium screenshot per rung as the maintainer's visual check.
+
+## Exports
+
+- Charts: each figure has a quiet right-aligned "Download PNG" / "Download SVG" row. The SVG is a clone of the figure's `<svg>` with computed text/shape styles inlined, `xmlns`, explicit width/height and a white background rect; the PNG draws that same SVG into a canvas at twice the chart's design size (920 px wide viewBox plus the title band), so it is a fixed-size export, the same file whatever the window width. The title is already inside each `<svg>`, so nothing is added. The webfont is not available to an SVG loaded as an image, so the clone's font-family is `"Source Sans 3", system-ui, sans-serif` and the PNG falls back to the system font.
+- Tables: each section heading row has "Download CSV" with every row of the filtered view in table order (`longestLags` / `oldestWaiting` called with `n = Infinity`). Columns: bill, stage, type, number, text_date, summary_date (lags only), days, pages, title, url. RFC 4180 quoting, CRLF.
+- Filenames come from `exportName(kind, state, asOf)` in `metrics.js`; the date range part is present only for a usable range, with an open side written `start` / `end`.
+- All are `<button type="button">` with an aria-label naming the figure; they follow the existing controls in Tab order within their figure.

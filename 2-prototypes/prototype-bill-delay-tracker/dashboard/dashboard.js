@@ -1,4 +1,4 @@
-import { headerMetrics, binLags, histogramMax, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativePages, longestLags, oldestWaiting, billLabel, billUrl, ordinal } from './metrics.js';
+import { headerMetrics, binLags, histogramMax, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativePages, longestLags, oldestWaiting, billLabel, billUrl, ordinal, exportName, toCsv } from './metrics.js';
 
 const BLUE = '#104378', RED = '#b2182b', INK = '#1f2933', MUTED = '#6b7280';
 let fmt; // assigned in main() once d3 is known to be loaded
@@ -13,13 +13,14 @@ function card(label, value, note = '') {
   return `<div class="card"><div class="value">${value}</div><div class="label">${label}</div><div class="note">${note}</div></div>`;
 }
 
-function renderHeader(records, allVersions, stage) {
+function renderHeader(records, pageRecords, anyStage, stage) {
   const m = headerMetrics(records);
-  const p = headerMetrics(allVersions); // pages count every edition, not only the staged one; reported ignores the stage select
+  const p = headerMetrics(pageRecords); // pages follow the stage select (every edition for 'all')
+  const r = headerMetrics(anyStage); // reported ignores the stage select
   document.getElementById('cards').innerHTML = [
-    card('pages of bill text', fmt(p.pagesTotal), `${fmt(p.pagesCounted)} of ${fmt(p.versions)} versions counted`),
+    card('pages of bill text', fmt(p.pagesTotal), `${fmt(p.pagesCounted)} of ${fmt(p.versions)} ${stage === 'all' ? '' : `${stage} `}versions counted`),
     card('bills summarized', fmt(m.summarized), `${fmt(m.waiting)} ${stage === 'all' ? 'bills with no summary at any stage' : 'still waiting'}`),
-    card('reported by committee', fmt(p.reported), 'bills with an rh/rs text version'),
+    card('reported by committee', fmt(r.reported), 'bills with an rh/rs text version (any stage)'),
     card('mean lag (days)', day(m.lagMean), `n=${fmt(m.n)}`),
     card('median lag (days)', day(m.lagMedian)),
     card('max lag (days)', day(m.lagMax)),
@@ -150,7 +151,7 @@ const currentRecords = (state) => filterRecords(state.records, state);
 function renderTimeseries(records, state) {
   const series = monthlySeries(records);
   const W = 920, left = 76, right = 16, topY = 40, topH = 170, H = topY + topH + 60;
-  const fig = d3.select('#timeseries').html('');
+  const fig = d3.select('#timeseries .chart').html('');
   if (series.length === 0) return;
   const svg = fig.append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Share of bills with a CRS summary, by month the text was issued');
   svg.append('text').attr('x', left).attr('y', 18).attr('font-size', 14).attr('font-weight', 600).attr('fill', INK)
@@ -210,6 +211,116 @@ function renderCumulative(target, series, keys, labels, title, yLabel, note = ''
   svg.append('text').attr('x', W - right).attr('y', y(last[keys[1]]) - 6).attr('font-size', 11).attr('text-anchor', 'end').attr('fill', BLUE).text(`${fmt(last[keys[1]])} ${labels[1]}`);
 }
 
+// ---- exports -------------------------------------------------------------------------------------------------------
+const FONT_STACK = '"Source Sans 3", system-ui, sans-serif';
+const STYLE_PROPS = ['font-family', 'font-size', 'font-weight', 'fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-opacity', 'stroke-dasharray', 'opacity', 'text-anchor'];
+
+function download(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+/** Standalone copy of a figure's svg: computed styles inlined, xmlns, explicit size, white background, a white band above the title. */
+function standaloneSvg(svg) {
+  const vb = svg.viewBox.baseVal;
+  const clone = svg.cloneNode(true);
+  const src = [svg, ...svg.querySelectorAll('*')], dst = [clone, ...clone.querySelectorAll('*')];
+  src.forEach((el, i) => {
+    const cs = getComputedStyle(el);
+    for (const p of STYLE_PROPS) {
+      const v = p === 'font-family' ? FONT_STACK : cs.getPropertyValue(p);
+      if (v) dst[i].style.setProperty(p, v);
+    }
+  });
+  const dstTitle = clone.querySelector('text');
+  // the fallback font is wider than the webfont: shrink only the exported title (never below 12 px) until it fits the canvas with a right margin
+  if (dstTitle) {
+    const ctx = document.createElement('canvas').getContext('2d');
+    const base = parseFloat(dstTitle.style.getPropertyValue('font-size')) || 14;
+    ctx.font = `${dstTitle.style.getPropertyValue('font-weight') || 600} ${base}px system-ui, sans-serif`;
+    const room = vb.width - (+dstTitle.getAttribute('x') || 0) - 12;
+    const fit = Math.floor(base * Math.min(1, room / ctx.measureText(dstTitle.textContent).width) * 10) / 10;
+    dstTitle.style.setProperty('font-size', `${Math.max(12, fit)}px`);
+  }
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  clone.setAttribute('width', vb.width);
+  // breathing room above the title: every title sits in the svg with its baseline 13-18 px down, so push the content down until ~20 px of white is above its cap height
+  const TITLE_CAP = 10, TITLE_TOP_WHITE = 20;
+  const pad = Math.max(0, Math.round(TITLE_TOP_WHITE - (+(dstTitle && dstTitle.getAttribute('y')) - TITLE_CAP)));
+  const H = vb.height + pad;
+  clone.setAttribute('height', H);
+  clone.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.width} ${H}`);
+  if (pad) {
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('transform', `translate(0,${pad})`);
+    while (clone.firstChild) g.appendChild(clone.firstChild);
+    clone.appendChild(g);
+  }
+  clone.removeAttribute('style');
+  clone.style.fontFamily = FONT_STACK;
+  const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  for (const [k, v] of [['x', vb.x], ['y', vb.y], ['width', vb.width], ['height', H], ['fill', '#ffffff']]) bg.setAttribute(k, v);
+  clone.insertBefore(bg, clone.firstChild);
+  return { text: new XMLSerializer().serializeToString(clone), width: vb.width, height: H };
+}
+
+const figureSvg = (figure) => document.querySelector(`#${figure} svg`);
+
+function exportSvg(figure) {
+  const svg = figureSvg(figure);
+  if (!svg) return;
+  download(new Blob([standaloneSvg(svg).text], { type: 'image/svg+xml;charset=utf-8' }), `${exportName(figure, state, asOf)}.svg`);
+}
+
+function exportPng(figure) {
+  const svg = figureSvg(figure);
+  if (!svg) return;
+  const { text, width, height } = standaloneSvg(svg);
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = width * 2; canvas.height = height * 2;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => { if (blob) download(blob, `${exportName(figure, state, asOf)}.png`); }, 'image/png');
+  };
+  img.onerror = () => console.warn('PNG export failed: the svg did not load as an image');
+  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(text)}`;
+}
+
+const CSV_COLUMNS = ['bill', 'stage', 'type', 'number', 'text_date', 'summary_date', 'days', 'pages', 'title', 'url'];
+function exportCsv(which) {
+  const records = currentRecords(state);
+  const lags = which === 'longest-lags';
+  const rows = (lags ? longestLags(records, Infinity) : oldestWaiting(records, asOf, Infinity)).map((r) => ({
+    bill: billLabel(r.type, r.number), stage: r.stage, type: r.type, number: r.number, text_date: r.text_date,
+    summary_date: lags ? r.summary_date : '', days: lags ? r.lag_days : r.days_waiting, pages: r.pages, title: r.title,
+    url: billUrl(congress, r.type, r.number),
+  }));
+  const columns = lags ? CSV_COLUMNS : CSV_COLUMNS.filter((c) => c !== 'summary_date');
+  download(new Blob([toCsv(rows, columns)], { type: 'text/csv;charset=utf-8' }), `${exportName(which, state, asOf)}.csv`);
+}
+
+function setupExports() {
+  document.querySelectorAll('.export-row').forEach((row) => {
+    const { figure, label } = row.dataset;
+    for (const [kind, fn] of [['PNG', exportPng], ['SVG', exportSvg]]) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = `Download ${kind}`; b.setAttribute('aria-label', `Download ${label} as ${kind}`);
+      b.addEventListener('click', () => fn(figure));
+      row.appendChild(b);
+    }
+  });
+  document.querySelectorAll('button[data-csv]').forEach((b) => b.addEventListener('click', () => exportCsv(b.dataset.csv)));
+}
+
 const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 // cols: [header, cell(row) -> html, class]
@@ -236,20 +347,21 @@ export function render(state) {
   renderControls(state);
   const unranged = filterRecords(state.records, { stage: state.stage, type: state.type, range: null });
   const records = filterRecords(state.records, state);
-  renderHeader(records, filterRecords(state.records, { stage: 'all', type: state.type, range: state.range }), state.stage);
+  const allEditions = filterRecords(state.records, { stage: 'all', type: state.type, range: state.range });
+  const pageRecords = state.stage === 'all' ? allEditions : records;
+  renderHeader(records, pageRecords, allEditions, state.stage);
   renderPreText();
   renderLists(records);
   renderHistogram(records, state);
   renderTimeseries(unranged, state);
   const scope = rangeLabel(state.range);
-  renderCumulative('#cumulative', cumulativeSeries(records), ['withText', 'summarized'], ['with text', 'summarized'],
+  renderCumulative('#cumulative .chart', cumulativeSeries(records), ['withText', 'summarized'], ['with text', 'summarized'],
     `${scope}: bills with text issued, and bills with a CRS summary. The gap is the backlog.`, 'bills');
-  const allEditions = filterRecords(state.records, { stage: 'all', type: state.type, range: state.range });
-  const pagesSeries = cumulativePages(allEditions, state.stage);
+  const pagesSeries = cumulativePages(pageRecords);
   const uncounted = pagesSeries.length ? pagesSeries.at(-1).versionsWithoutPages : 0;
-  renderCumulative('#cumulative-pages', pagesSeries, ['pagesIssued', 'pagesSummarized'], ['pages issued', 'pages summarized'],
+  renderCumulative('#cumulative-pages .chart', pagesSeries, ['pagesIssued', 'pagesSummarized'], ['pages issued', 'pages summarized'],
     `${scope}: pages of bill text issued, and pages covered by a CRS summary.`, 'pages',
-    [uncounted ? `${fmt(uncounted)} versions not yet page-counted.` : '', `Summaries: ${state.stage === 'all' ? 'all stages' : `${state.stage} stage`}.`].filter(Boolean).join(' '));
+    [uncounted ? `${fmt(uncounted)} versions not yet page-counted.` : '', (state.stage === 'all' ? 'Pages of every text version; summaries at any stage.' : `Pages of ${state.stage} text versions.`)].filter(Boolean).join(' '));
 }
 
 async function main() {
@@ -266,10 +378,11 @@ async function main() {
     state.summaryBefore = doc.summary_before_text || {};
     document.getElementById('subtitle').textContent =
       `Lag between a bill text version on GovInfo and its CRS summary on Congress.gov, ${ordinal(doc.congress)} Congress, as of ${doc.as_of}.`;
+    setupExports();
     render(state);
   } catch (err) {
     document.getElementById('controls').innerHTML = '';
-    document.querySelectorAll('figure, .table-wrap').forEach((f) => { f.innerHTML = ''; });
+    document.querySelectorAll('figure .chart, #hist-chart, .table-wrap').forEach((f) => { f.innerHTML = ''; });
     document.getElementById('pre-text').textContent = '';
     const cards = document.getElementById('cards');
     cards.innerHTML = '';

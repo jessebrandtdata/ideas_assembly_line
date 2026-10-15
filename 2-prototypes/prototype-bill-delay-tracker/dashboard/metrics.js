@@ -97,14 +97,14 @@ export function cumulativeSeries(records) {
   return dates.map((date) => ({ date, withText: countLE(textDates, date), summarized: countLE(summaryDates, date) }));
 }
 
-/** Running page totals (summaries restricted to `stage` unless 'all'): pages of every text version issued, and pages of the staged versions whose summary has arrived. */
-export function cumulativePages(records, stage = 'all') {
+/** Running page totals over the given records (the caller scopes them to a stage, or passes every edition for 'all'): pages issued, and pages of the staged records whose summary has arrived. */
+export function cumulativePages(records) {
   const issued = [], summarized = [], missing = [];
   for (const r of records) {
     if (r.pages === null) missing.push(r.text_date);
     else {
       issued.push([r.text_date, r.pages]);
-      if (r.stage !== null && r.summary_date !== null && (stage === 'all' || r.stage === stage)) summarized.push([r.summary_date, r.pages]);
+      if (r.stage !== null && r.summary_date !== null) summarized.push([r.summary_date, r.pages]);
     }
   }
   const dates = [...new Set([...issued.map((p) => p[0]), ...summarized.map((p) => p[0]), ...missing])].sort();
@@ -152,4 +152,19 @@ export function oldestWaiting(records, asOf, n = 10) {
     .map((r) => ({ ...r, days_waiting: utcDays(asOf) - utcDays(r.text_date) }))
     .sort((a, b) => b.days_waiting - a.days_waiting || byNumber(a, b))
     .slice(0, n);
+}
+
+/** Download filename (no extension): bill-delay-<kind>-<stage>-<type>[-<from>_<to>]-<asOf>.
+ *  The range part appears only for a usable range (an inverted one is ignored, as in filterRecords); an open side reads "start"/"end". */
+export function exportName(kind, { stage = 'all', type = 'all', range = null } = {}, asOf) {
+  const from = range?.from || null, to = range?.to || null;
+  const ranged = (from || to) && !(from && to && from > to);
+  return ['bill-delay', kind, stage, type, ...(ranged ? [`${from || 'start'}_${to || 'end'}`] : []), asOf].join('-');
+}
+
+/** RFC 4180 CSV: header row of the column keys, then one row per record; fields with a comma, quote, CR or LF are quoted
+ *  with embedded quotes doubled; null/undefined become empty; rows are joined by CRLF (no trailing newline). */
+export function toCsv(rows, columns) {
+  const cell = (v) => { const t = v == null ? '' : String(v); return /[",\r\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+  return [columns, ...rows.map((r) => columns.map((c) => r[c]))].map((line) => line.map(cell).join(',')).join('\r\n');
 }
