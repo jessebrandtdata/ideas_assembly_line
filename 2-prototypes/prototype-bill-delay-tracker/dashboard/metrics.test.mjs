@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { headerMetrics, binLags } from './metrics.js';
+import { headerMetrics, binLags, filterRecords } from './metrics.js';
 
 const rec = (o) => ({ type: 'hr', number: '1', stage: 'introduced', text_date: '2025-01-10',
   summary_date: null, lag_days: null, pages: null, reported: false, title: 't', ...o });
@@ -50,4 +50,17 @@ test('binLags puts lags in fixed-width bins, last bin open, waiting ignored', ()
 test('binLags on empty input and on only-waiting input', () => {
   assert.deepEqual(binLags([], 30), []);
   assert.deepEqual(binLags([rec()], 30), []);
+});
+
+test('filterRecords by stage, type, and inclusive date range', () => {
+  const rs = [
+    rec({ number: '1', stage: 'introduced', type: 'hr', text_date: '2025-01-10' }),
+    rec({ number: '2', stage: 'reported', type: 'hr', text_date: '2025-03-10' }),
+    rec({ number: '3', stage: 'introduced', type: 's', text_date: '2025-06-30' }),
+  ];
+  assert.equal(filterRecords(rs, { stage: 'all', type: 'all', range: null }).length, 3);
+  assert.deepEqual(filterRecords(rs, { stage: 'introduced', type: 'all', range: null }).map((r) => r.number), ['1', '3']);
+  assert.deepEqual(filterRecords(rs, { stage: 'all', type: 's', range: null }).map((r) => r.number), ['3']);
+  assert.deepEqual(filterRecords(rs, { stage: 'all', type: 'all', range: ['2025-03-10', '2025-06-30'] }).map((r) => r.number), ['2', '3']);
+  assert.deepEqual(filterRecords(rs, { stage: 'all', type: 'all', range: ['2026-01-01', '2026-12-31'] }), []);
 });

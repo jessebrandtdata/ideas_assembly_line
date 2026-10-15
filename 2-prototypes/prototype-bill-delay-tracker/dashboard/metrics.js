@@ -41,3 +41,11 @@ export function binLags(records, width, maxBins = 20) {
   if (needed > count) bins[count - 1].to = null;
   return bins;
 }
+
+/** Records in view. range is null or [fromISO, toISO], inclusive on text_date. */
+export function filterRecords(records, { stage = 'all', type = 'all', range = null }) {
+  return records.filter((r) =>
+    (stage === 'all' || r.stage === stage) &&
+    (type === 'all' || r.type === type) &&
+    (range === null || (r.text_date >= range[0] && r.text_date <= range[1])));
+}

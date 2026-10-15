@@ -1,15 +1,10 @@
-import { headerMetrics, binLags } from './metrics.js';
+import { headerMetrics, binLags, filterRecords } from './metrics.js';
 
 const BLUE = '#104378', RED = '#b2182b', INK = '#1f2933', MUTED = '#6b7280';
 const fmt = d3.format(',');
 const day = (v) => (v === null ? '–' : `${Math.round(v)}`);
 
 const state = { records: [], stage: 'introduced', type: 'all', range: null, width: 30 };
-
-/** Records in view; filters arrive in later tasks. */
-function inView(state) {
-  return state.records.filter((r) => r.stage === state.stage);
-}
 
 function card(label, value, note = '') {
   return `<div class="card"><div class="value">${value}</div><div class="label">${label}</div><div class="note">${note}</div></div>`;
@@ -68,9 +63,26 @@ function renderHistogram(records, width) {
   }
 }
 
+const STAGES = [['introduced', 'Introduced'], ['reported', 'Reported by committee'], ['passed', 'Passed a chamber'], ['enrolled', 'Enrolled'], ['all', 'All stages']];
+const TYPES = [['all', 'All bill types'], ['hr', 'H.R.'], ['s', 'S.'], ['hjres', 'H.J.Res.'], ['sjres', 'S.J.Res.']];
+
+function select(id, label, options, value) {
+  return `<label>${label}<select id="${id}">${options.map(([v, text]) =>
+    `<option value="${v}"${v === value ? ' selected' : ''}>${text}</option>`).join('')}</select></label>`;
+}
+
+function renderControls(state) {
+  const el = document.getElementById('controls');
+  if (el.children.length) return; // built once; selects keep their own value
+  el.innerHTML = select('stage', 'Stage', STAGES, state.stage) + select('type', 'Bill type', TYPES, state.type);
+  el.querySelector('#stage').addEventListener('change', (e) => { state.stage = e.target.value; render(state); });
+  el.querySelector('#type').addEventListener('change', (e) => { state.type = e.target.value; render(state); });
+}
+
 export function render(state) {
-  const records = inView(state);
-  renderHeader(records, state.records);
+  renderControls(state);
+  const records = filterRecords(state.records, state);
+  renderHeader(records, filterRecords(state.records, { stage: 'all', type: state.type, range: state.range }));
   renderHistogram(records, state.width);
 }
 
