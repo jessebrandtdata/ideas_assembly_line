@@ -31,48 +31,82 @@ def bar_chart(bins, title, color):
     return "".join(out)
 
 
+MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+
+def nice_ticks(vmax, target=5):
+    """Round tick values up to a multiple of 1/2/5 x 10^k that covers vmax."""
+    import math
+    if vmax <= 0:
+        return [0, 1]
+    raw = vmax / target
+    mag = 10 ** math.floor(math.log10(raw))
+    step = next(m * mag for m in (1, 2, 5, 10) if m * mag >= raw)
+    top = math.ceil(vmax / step) * step
+    return [i * step for i in range(int(top / step) + 1)]
+
+
 def timeseries_chart(monthly):
     """Two panels over month of introduction: share summarized vs still waiting,
     and median / 90th-percentile lag among the summarized."""
-    w, left, right, gap = 920, 56, 16, 10
+    w, left, right, gap = 920, 76, 16, 10
     n = max(len(monthly), 1)
     slot = (w - left - right) / n
     bw = slot - gap
-    top_h, bot_h, top_y, bot_y = 150, 170, 48, 250
-    h = bot_y + bot_h + 60
+    top_h, bot_h, top_y, bot_y = 150, 170, 52, 290
+    h = bot_y + bot_h + 78
     lags = [m["p90_lag"] for m in monthly if m["p90_lag"] is not None] or [1]
-    ymax = max(lags)
+    yticks = nice_ticks(max(lags))
+    ymax = yticks[-1]
     out = [f'<svg viewBox="0 0 {w} {h}" role="img" aria-label="Lag by month of introduction" style="max-width:100%;height:auto">']
     out.append(f'<text x="{left}" y="18" font-size="14" font-weight="600" fill="{INK}">Bills by month of introduction: share with a CRS summary, and lag among those summarized</text>')
+
+    def month_axis(y):
+        for i, m in enumerate(monthly):
+            x = left + i * slot + bw / 2
+            yy, mm = m["month"].split("-")
+            out.append(f'<text x="{x:.1f}" y="{y}" font-size="10" text-anchor="middle" fill="{MUTED}">{MONTHS[int(mm) - 1]}</text>')
+            if mm == "01" or i == 0:
+                out.append(f'<text x="{x:.1f}" y="{y + 12}" font-size="10" font-weight="600" text-anchor="middle" fill="{INK}">{yy}</text>')
+        out.append(f'<text x="{left + (w - left - right) / 2:.1f}" y="{y + 28}" font-size="11" text-anchor="middle" fill="{INK}">Month the bill was introduced</text>')
+
+    def y_title(label, y_mid):
+        out.append(f'<text transform="translate(14,{y_mid:.1f}) rotate(-90)" font-size="11" text-anchor="middle" fill="{INK}">{label}</text>')
+
+    # top panel: share summarized vs waiting
     for i, m in enumerate(monthly):
         x = left + i * slot
         tot = m["summarized"] + m["awaiting"] or 1
         sh = top_h * m["summarized"] / tot
         out.append(f'<rect x="{x:.1f}" y="{top_y + top_h - sh:.1f}" width="{bw:.1f}" height="{sh:.1f}" fill="{BLUE}"><title>{m["month"]}: {m["summarized"]} summarized, {m["awaiting"]} waiting</title></rect>')
         out.append(f'<rect x="{x:.1f}" y="{top_y:.1f}" width="{bw:.1f}" height="{top_h - sh:.1f}" fill="{GOLD}"><title>{m["month"]}: {m["awaiting"]} waiting</title></rect>')
-        out.append(f'<text x="{x + bw / 2:.1f}" y="{top_y + top_h + 14}" font-size="10" text-anchor="middle" fill="{MUTED}">{m["month"][2:]}</text>')
-        out.append(f'<text x="{x + bw / 2:.1f}" y="{bot_y + bot_h + 14}" font-size="10" text-anchor="middle" fill="{MUTED}">{m["month"][2:]}</text>')
-    for frac, label in ((0, "0%"), (0.5, "50%"), (1, "100%")):
+    for frac in (0, 0.25, 0.5, 0.75, 1):
         y = top_y + top_h - top_h * frac
         out.append(f'<line x1="{left}" x2="{w - right}" y1="{y:.1f}" y2="{y:.1f}" stroke="#e5e7eb"/>')
-        out.append(f'<text x="{left - 6}" y="{y + 4:.1f}" font-size="10" text-anchor="end" fill="{MUTED}">{label}</text>')
-    out.append(f'<rect x="{left}" y="{top_y - 14}" width="10" height="10" fill="{BLUE}"/><text x="{left + 14}" y="{top_y - 5}" font-size="11" fill="{INK}">has introduced-stage summary</text>')
-    out.append(f'<rect x="{left + 190}" y="{top_y - 14}" width="10" height="10" fill="{GOLD}"/><text x="{left + 204}" y="{top_y - 5}" font-size="11" fill="{INK}">still waiting</text>')
+        out.append(f'<text x="{left - 6}" y="{y + 4:.1f}" font-size="10" text-anchor="end" fill="{MUTED}">{int(frac * 100)}%</text>')
+    y_title("Share of bills introduced that month", top_y + top_h / 2)
+    out.append(f'<rect x="{left}" y="{top_y - 14}" width="10" height="10" fill="{BLUE}"/><text x="{left + 14}" y="{top_y - 5}" font-size="11" fill="{INK}">has introduced-stage CRS summary</text>')
+    out.append(f'<rect x="{left + 215}" y="{top_y - 14}" width="10" height="10" fill="{GOLD}"/><text x="{left + 229}" y="{top_y - 5}" font-size="11" fill="{INK}">still waiting for one</text>')
+    month_axis(top_y + top_h + 14)
 
+    # bottom panel: lag lines
     def yy(v):
         return bot_y + bot_h - bot_h * v / ymax
-    for v in sorted({0, ymax // 2, ymax}):
+    for v in yticks:
         out.append(f'<line x1="{left}" x2="{w - right}" y1="{yy(v):.1f}" y2="{yy(v):.1f}" stroke="#e5e7eb"/>')
-        out.append(f'<text x="{left - 6}" y="{yy(v) + 4:.1f}" font-size="10" text-anchor="end" fill="{MUTED}">{int(v)}d</text>')
-    for key, color, dash, label, lx in (("p90_lag", MUTED, ' stroke-dasharray="4 3"', "90th percentile lag", left + 150), ("median_lag", BLUE, "", "median lag (days)", left)):
+        out.append(f'<text x="{left - 6}" y="{yy(v) + 4:.1f}" font-size="10" text-anchor="end" fill="{MUTED}">{int(v)}</text>')
+    y_title("Days, introduced text to CRS summary", bot_y + bot_h / 2)
+    for key, color, dash, label, lx in (("p90_lag", MUTED, ' stroke-dasharray="4 3"', "90th percentile", left + 100), ("median_lag", BLUE, "", "median", left)):
         pts = [(left + i * slot + bw / 2, yy(m[key])) for i, m in enumerate(monthly) if m[key] is not None]
         if pts:
             out.append(f'<polyline fill="none" stroke="{color}" stroke-width="2"{dash} points="{" ".join(f"{x:.1f},{y:.1f}" for x, y in pts)}"/>')
             for (x, y), m in zip(pts, [m for m in monthly if m[key] is not None]):
-                out.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="2.5" fill="{color}"><title>{m["month"]}: {label} {m[key]:.0f} days (n={m["summarized"]})</title></circle>')
+                out.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="2.5" fill="{color}"><title>{m["month"]}: {label} lag {m[key]:.0f} days (n={m["summarized"]} summarized)</title></circle>')
         out.append(f'<line x1="{lx}" x2="{lx + 18}" y1="{bot_y - 9}" y2="{bot_y - 9}" stroke="{color}" stroke-width="2"{dash}/><text x="{lx + 24}" y="{bot_y - 5}" font-size="11" fill="{INK}">{label}</text>')
-    out.append(f'<text x="{left}" y="{h - 20}" font-size="11" fill="{MUTED}">Right-censored: in recent months only the bills already summarized count toward the lag lines, so they fall at the right edge.</text>')
-    out.append(f'<text x="{left}" y="{h - 6}" font-size="11" fill="{MUTED}">The gold share above is the honest companion: those bills have no lag yet because they have no summary yet.</text>')
+    out.append(f'<text x="{left + 290}" y="{bot_y - 5}" font-size="11" fill="{MUTED}">lag among the bills summarized so far</text>')
+    month_axis(bot_y + bot_h + 14)
+    out.append(f'<text x="{left}" y="{h - 16}" font-size="11" fill="{MUTED}">Right-censored: in recent months only the bills already summarized count toward the lag lines, so they fall at the right edge.</text>')
+    out.append(f'<text x="{left}" y="{h - 3}" font-size="11" fill="{MUTED}">The gold share above is the honest companion: those bills have no lag yet because they have no summary yet.</text>')
     out.append("</svg>")
     return "".join(out)
 
