@@ -23,7 +23,7 @@ function renderHeader(records, allVersions) {
   ].join('');
 }
 
-function renderHistogram(records, width) {
+function renderHistogram(records, width, stage) {
   const bins = binLags(records, width);
   const m = headerMetrics(records);
   const W = 920, H = 320, left = 56, right = 16, top = 36, bottom = 56;
@@ -34,22 +34,31 @@ function renderHistogram(records, width) {
   }
   const svg = fig.append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
     .attr('aria-label', 'Histogram of lag in days');
-  svg.append('text').attr('x', left).attr('y', 18).attr('font-size', 14).attr('font-weight', 600).attr('fill', INK)
-    .text(`Days from text to CRS summary, ${width}-day bins (n=${fmt(m.n)} summarized; ${fmt(m.waiting)} still waiting, not shown)`);
+  svg.append('text').attr('x', left).attr('y', 13).attr('font-size', 14).attr('font-weight', 600).attr('fill', INK)
+    .text(`Days from text to CRS summary, ${width}-day bins (n=${fmt(m.n)} ${stage === 'all' ? 'summaries' : 'summarized'}; ${fmt(m.waiting)} still waiting, not shown)`);
   const x = d3.scaleBand().domain(bins.map((_, i) => i)).range([left, W - right]).padding(0.12);
   const y = d3.scaleLinear().domain([0, d3.max(bins, (b) => b.count)]).nice().range([H - bottom, top]);
   svg.append('g').attr('transform', `translate(${left},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(fmt))
     .call((g) => g.select('.domain').remove()).selectAll('text').attr('fill', MUTED);
   svg.append('g').attr('transform', `translate(0,${H - bottom})`)
-    .call(d3.axisBottom(x).tickFormat((i) => (bins[i].to === null ? `${bins[i].from}+` : `${bins[i].from}`)))
-    .call((g) => g.select('.domain').remove()).selectAll('text').attr('fill', MUTED);
+    .call(d3.axisBottom(x).tickFormat((i) => (bins[i].to === null ? `${bins[i].from}+` : `${bins[i].from}–${bins[i].to - 1}`)))
+    .call((g) => g.select('.domain').remove()).selectAll('text').attr('fill', MUTED).attr('font-size', 9);
   svg.append('text').attr('x', (left + W - right) / 2).attr('y', H - 14).attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK)
-    .text('lag in days (bin start)');
+    .text('lag in days');
   svg.append('text').attr('transform', `translate(14,${(top + H - bottom) / 2}) rotate(-90)`).attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK)
     .text('bills');
   svg.append('g').selectAll('rect').data(bins).join('rect')
     .attr('x', (_, i) => x(i)).attr('y', (b) => y(b.count)).attr('width', x.bandwidth())
-    .attr('height', (b) => y(0) - y(b.count)).attr('fill', BLUE).attr('rx', 2);
+    .attr('height', (b) => y(0) - y(b.count)).attr('fill', BLUE).attr('rx', 2)
+    .on('mousemove', (event, b) => {
+      const share = m.n ? (b.count / m.n) : 0;
+      const range = b.to === null ? `${b.from}+ days` : `${b.from}–${b.to - 1} days`;
+      d3.select('#tooltip').style('display', 'block').style('left', `${event.pageX + 12}px`).style('top', `${event.pageY - 10}px`)
+        .text(`${range}: ${fmt(b.count)} bills (${d3.format('.1%')(share)} of summarized)`);
+    })
+    .on('mouseleave', () => d3.select('#tooltip').style('display', 'none'));
+  svg.selectAll('rect').filter((b) => b && 'count' in b).append('title')
+    .text((b) => `${b.to === null ? `${b.from}+` : `${b.from}–${b.to - 1}`} days: ${fmt(b.count)} bills`);
   svg.append('g').selectAll('text').data(bins).join('text')
     .attr('x', (_, i) => x(i) + x.bandwidth() / 2).attr('y', (b) => y(b.count) - 4)
     .attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK).text((b) => (b.count ? fmt(b.count) : ''));
@@ -58,11 +67,13 @@ function renderHistogram(records, width) {
   for (const [v, label] of [[m.lagMedian, 'median'], [m.lagMean, 'mean']]) {
     svg.append('line').attr('x1', pos(v)).attr('x2', pos(v)).attr('y1', top - 6).attr('y2', H - bottom)
       .attr('stroke', RED).attr('stroke-width', 1.5).attr('stroke-dasharray', label === 'mean' ? '4 3' : null);
-    svg.append('text').attr('x', pos(v) + 4).attr('y', top + (label === 'mean' ? 26 : 12)).attr('font-size', 11).attr('fill', RED)
+    const crowded = label === 'mean' && Math.abs(pos(m.lagMean) - pos(m.lagMedian)) < 60;
+    svg.append('text').attr('x', pos(v) - 4).attr('y', crowded ? top + 4 : top - 10).attr('font-size', 11).attr('text-anchor', 'end').attr('fill', RED)
       .text(`${label} ${Math.round(v)}d`);
   }
 }
 
+const WIDTHS = [7, 30, 90];
 const STAGES = [['introduced', 'Introduced'], ['reported', 'Reported by committee'], ['passed', 'Passed a chamber'], ['enrolled', 'Enrolled'], ['all', 'All stages']];
 const TYPES = [['all', 'All bill types'], ['hr', 'H.R.'], ['s', 'S.'], ['hjres', 'H.J.Res.'], ['sjres', 'S.J.Res.']];
 
@@ -75,9 +86,15 @@ function renderControls(state) {
   const el = document.getElementById('controls');
   if (el.children.length) return; // built once; selects keep their own value
   el.innerHTML = select('stage', 'Stage', STAGES, state.stage) + select('type', 'Bill type', TYPES, state.type)
+    + `<label>Bin width<span role="group" aria-label="Bin width">${WIDTHS.map((w) => `<button type="button" data-width="${w}" aria-pressed="${w === state.width}">${w} days</button>`).join('')}</span></label>`
     + '<button id="clear" type="button">Clear month selection</button>';
   el.querySelector('#stage').addEventListener('change', (e) => { state.stage = e.target.value; render(state); });
   el.querySelector('#type').addEventListener('change', (e) => { state.type = e.target.value; render(state); });
+  el.querySelectorAll('[data-width]').forEach((b) => b.addEventListener('click', () => {
+    state.width = +b.dataset.width;
+    el.querySelectorAll('[data-width]').forEach((o) => o.setAttribute('aria-pressed', String(o === b)));
+    render(state);
+  }));
   el.querySelector('#clear').addEventListener('click', () => { state.range = null; render(state); });
 }
 
@@ -145,7 +162,7 @@ export function render(state) {
   renderControls(state);
   const records = filterRecords(state.records, state);
   renderHeader(records, filterRecords(state.records, { stage: 'all', type: state.type, range: state.range }));
-  renderHistogram(records, state.width);
+  renderHistogram(records, state.width, state.stage);
   renderTimeseries(filterRecords(state.records, { stage: state.stage, type: state.type, range: null }), state);
 }
 

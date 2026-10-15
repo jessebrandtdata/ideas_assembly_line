@@ -79,3 +79,12 @@ test('monthlySeries groups by month of text_date with lag quantiles', () => {
   ]);
   assert.deepEqual(monthlySeries([]), []);
 });
+
+test('binLags totals are width-invariant', () => {
+  const rs = [rec({ lag_days: 3 }), rec({ lag_days: 45 }), rec({ lag_days: 200 }), rec({ lag_days: 800 })];
+  const total = (w) => binLags(rs, w).reduce((s, b) => s + b.count, 0);
+  assert.equal(total(7), 4);
+  assert.equal(total(30), 4);
+  assert.equal(total(90), 4);
+  assert.equal(binLags(rs, 7).at(-1).to, null); // 800/7 > 20 bins → open last bin
+});
