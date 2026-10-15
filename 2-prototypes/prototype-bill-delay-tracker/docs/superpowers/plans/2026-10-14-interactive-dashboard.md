@@ -943,3 +943,91 @@ Serve as before. Two step lines rising left to right; blue above red; end labels
 git add dashboard
 git commit -m "Bill Delay Tracker: cumulative bills with text vs summarized"
 ```
+
+---
+
+### Task 8: Cumulative pages of text vs pages summarized
+
+**Files:**
+- Modify: `dashboard/metrics.js` (add `cumulativePages`)
+- Modify: `dashboard/metrics.test.mjs`
+- Modify: `dashboard/dashboard.js` (generalize `renderCumulative` to take a series + labels; call it twice)
+- Modify: `dashboard/index.html` (add `<figure id="cumulative-pages"></figure>` after `#cumulative`)
+
+**Interfaces:**
+- Produces: `cumulativePages(records) → [{date, pagesIssued, pagesSummarized, versionsWithoutPages}]` — `pagesIssued` sums `pages` over every version (any stage, including `null`) with `text_date` ≤ date; `pagesSummarized` sums `pages` of staged versions whose `summary_date` ≤ date; `versionsWithoutPages` is the running count of versions with `pages: null` so the chart can say how much is uncounted. One point per distinct date where either sum changes, sorted.
+
+- [ ] **Step 1: Write the failing test**
+
+Append to `metrics.test.mjs` (add `cumulativePages` to the import):
+```js
+test('cumulativePages sums pages issued and pages of summarized bills by date', () => {
+  const s = cumulativePages([
+    rec({ number: '1', text_date: '2025-01-03', summary_date: '2025-01-20', lag_days: 17, pages: 10 }),
+    rec({ number: '2', text_date: '2025-01-03', pages: null }),
+    rec({ number: '1', stage: null, text_date: '2025-02-01', pages: 12 }),
+  ]);
+  assert.deepEqual(s, [
+    { date: '2025-01-03', pagesIssued: 10, pagesSummarized: 0, versionsWithoutPages: 1 },
+    { date: '2025-01-20', pagesIssued: 10, pagesSummarized: 10, versionsWithoutPages: 1 },
+    { date: '2025-02-01', pagesIssued: 22, pagesSummarized: 10, versionsWithoutPages: 1 },
+  ]);
+  assert.deepEqual(cumulativePages([]), []);
+});
+```
+
+- [ ] **Step 2: Run tests to verify it fails**
+
+Run: `node --test dashboard/metrics.test.mjs`
+Expected: SyntaxError: `cumulativePages` not exported
+
+- [ ] **Step 3: Add `cumulativePages` to `metrics.js`**
+
+```js
+/** Running page totals: pages of every text version issued, and pages of the staged versions whose summary has arrived. */
+export function cumulativePages(records) {
+  const issued = [], summarized = [], missing = [];
+  for (const r of records) {
+    if (r.pages === null) missing.push(r.text_date);
+    else {
+      issued.push([r.text_date, r.pages]);
+      if (r.stage !== null && r.summary_date !== null) summarized.push([r.summary_date, r.pages]);
+    }
+  }
+  const dates = [...new Set([...issued.map((p) => p[0]), ...summarized.map((p) => p[0]), ...missing])].sort();
+  const running = (pairs) => { const sorted = pairs.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)); let i = 0, sum = 0; return (d) => { while (i < sorted.length && sorted[i][0] <= d) sum += sorted[i++][1]; return sum; }; };
+  const pi = running(issued), ps = running(summarized), pm = running(missing.map((d) => [d, 1]));
+  return dates.map((date) => ({ date, pagesIssued: pi(date), pagesSummarized: ps(date), versionsWithoutPages: pm(date) }));
+}
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `node --test dashboard/metrics.test.mjs`
+Expected: 9 passed
+
+- [ ] **Step 5: Draw it by generalizing `renderCumulative`**
+
+Change the Task 7 function's signature to `renderCumulative(target, series, keys, labels, title, yLabel)` where `keys = ['withText', 'summarized']` for bills and `['pagesIssued', 'pagesSummarized']` for pages, `labels` the two end-label suffixes, `target` the figure id. Replace the hard-coded `withText`/`summarized` with `keys[0]`/`keys[1]`, and the end labels with `labels[0]`/`labels[1]`. Call it twice from `render(state)`:
+```js
+  const unranged = filterRecords(state.records, { stage: state.stage, type: state.type, range: null });
+  renderCumulative('#cumulative', cumulativeSeries(unranged), ['withText', 'summarized'], ['with text', 'summarized'],
+    'Congress to date: bills with text issued, and bills with a CRS summary. The gap is the backlog.', 'bills');
+  const allEditions = filterRecords(state.records, { stage: 'all', type: state.type, range: null });
+  const pagesSeries = cumulativePages(allEditions);
+  const uncounted = pagesSeries.length ? pagesSeries.at(-1).versionsWithoutPages : 0;
+  renderCumulative('#cumulative-pages', pagesSeries, ['pagesIssued', 'pagesSummarized'], ['pages issued', 'pages summarized'],
+    `Congress to date: pages of bill text issued, and pages covered by a CRS summary${uncounted ? ` (${fmt(uncounted)} versions not yet page-counted)` : ''}.`, 'pages');
+```
+Note the pages chart uses `stage: 'all'` so every edition's pages count, while the stage filter still governs which summaries count through `pagesSummarized`'s `stage !== null` check — document this in the chart title if the stage filter is not "all": append ` Summaries: ${state.stage} stage.` when `state.stage !== 'all'`.
+
+- [ ] **Step 6: Check in a browser**
+
+Serve as before. Two charts, same shape; the pages chart's title names how many versions are uncounted (600-ish before the full page sweep lands, 0 after). Blue above red in both.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add dashboard
+git commit -m "Bill Delay Tracker: cumulative pages issued vs pages summarized"
+```
