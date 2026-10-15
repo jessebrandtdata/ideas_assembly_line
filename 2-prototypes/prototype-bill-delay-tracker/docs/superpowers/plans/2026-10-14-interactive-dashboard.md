@@ -44,7 +44,7 @@
                 "summary_date": "2025-09-22", "lag_days": 125, "pages": 1118,
                 "reported": true, "title": "One Big Beautiful Bill Act"}]}
   ```
-  One record per key in `text`. Waiting: `summary_date: null`, `lag_days: null`. `pages: null` when not looked up. `reported` is bill-level (the bill has an `rh`/`rs` version).
+  One record per **text version** (every row of `versions.csv`, 19,982 in the snapshot), not only stage-mapped ones: a version whose code has no stage (`rfs`, `pcs`, `rds`, `cps`, `rfh`, numbered variants) carries `stage: null`, `summary_date: null`, `lag_days: null` and still counts toward pages. A stage-mapped version that is not the earliest of its (bill, stage) also carries `stage: null` (the lag belongs to the earliest edition). Waiting: `summary_date: null`, `lag_days: null`. `pages: null` when not looked up. `reported` is bill-level (the bill has an `rh`/`rs` version). The envelope also carries `"summary_before_text": {"introduced": 41, "reported": 2}` — summaries with a stage whose bill has no text version at that stage (the inverse delay), counted by stage. `summary_stage` maps "House agreed to Senate amendment" to `passed`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -81,11 +81,21 @@ class DelaysJson(unittest.TestCase):
         self.assertEqual(self.doc["as_of"], "2026-10-14")
         self.assertEqual(self.doc["congress"], "119")
 
-    def test_one_record_per_bill_stage(self):
-        # fixture: hr1 reported + passed, hr10786 introduced, hr10779 introduced
-        keys = sorted((r["type"], r["number"], r["stage"]) for r in self.records)
-        self.assertEqual(keys, [("hr", "1", "passed"), ("hr", "1", "reported"),
+    def test_one_record_per_version(self):
+        # fixture: hr1 rh + eh, hr10786 ih, hr10779 ih, plus one unmapped rfs edition of hr1
+        self.assertEqual(len(self.records), 5)
+        keys = sorted((r["type"], r["number"], r["stage"] or "-") for r in self.records)
+        self.assertEqual(keys, [("hr", "1", "-"), ("hr", "1", "passed"), ("hr", "1", "reported"),
                                 ("hr", "10779", "introduced"), ("hr", "10786", "introduced")])
+
+    def test_unmapped_version_keeps_pages_and_has_no_stage(self):
+        r = next(r for r in self.records if r["stage"] is None)
+        self.assertEqual(r["pages"], 900)
+        self.assertIsNone(r["lag_days"])
+
+    def test_summary_before_text_counted(self):
+        # fixture summaries.csv has an Introduced summary for hr 99999, which has no text version
+        self.assertEqual(self.doc["summary_before_text"], {"introduced": 1})
 
     def test_summarized_record(self):
         r = next(r for r in self.records if r["number"] == "1" and r["stage"] == "reported")
@@ -117,7 +127,14 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: Extend the fixture, run the test to verify it fails**
+
+Append to `tests/fixture/versions.csv`:
+```
+BILLS-119hr1rfs,119,hr,1,rfs,2025-05-23,2026-07-10T18:21:49Z,One Big Beautiful Bill Act
+```
+Append to `tests/fixture/pages.csv`: `BILLS-119hr1rfs,900`
+Append to `tests/fixture/summaries.csv`: `119,hr,99999,00,Introduced in House,2026-10-01,2026-10-13T15:00:00Z,,`
 
 Run: `python3 -m unittest tests.test_delays_json -v`
 Expected: FAIL in `setUpClass` with `FileNotFoundError: .../delays.json`
@@ -126,28 +143,40 @@ Expected: FAIL in `setUpClass` with `FileNotFoundError: .../delays.json`
 
 Insert after `awaiting.sort(key=lambda r: -r["age_days"])` and its `write_csv(...)` call, before `by_stage = defaultdict(list)`:
 ```python
-    # one record per bill-stage for the dashboard; waiting records carry nulls
+    # one record per text version for the dashboard. Only the earliest edition of a
+    # (bill, stage) carries the stage and its lag; every other edition keeps its pages
+    # under stage null so "pages processed" counts the whole Congress.
+    earliest = {v["package_id"]: k for k, v in text.items()}
     records = []
-    for k, v in sorted(text.items()):
-        s = summ.get(k)
+    for v in sorted(versions, key=lambda v: (v["bill_type"], int(v["number"]), v["date_issued"])):
+        k = earliest.get(v["package_id"])
+        s = summ.get(k) if k else None
         td = to_date(v["date_issued"])
         sd = to_date(s["update_date"]) if s else None
-        records.append({"type": k[0], "number": k[1], "stage": k[2],
+        records.append({"type": v["bill_type"], "number": v["number"], "stage": k[2] if k else None,
                         "text_date": td.isoformat(),
                         "summary_date": sd.isoformat() if sd else None,
                         "lag_days": (sd - td).days if sd else None,
                         "pages": pages.get(v["package_id"]),
-                        "reported": (k[0], k[1]) in reported,
+                        "reported": (v["bill_type"], v["number"]) in reported,
                         "title": v["title"]})
+    before_text = Counter(k[2] for k in summ if k not in text)
     (a.data_dir / "delays.json").write_text(json.dumps(
         {"as_of": as_of.isoformat(), "congress": versions[0]["congress"] if versions else None,
-         "records": records}, separators=(",", ":")) + "\n")
+         "summary_before_text": dict(sorted(before_text.items())), "records": records},
+        separators=(",", ":")) + "\n")
+```
+
+Also at the top of `delays.py`: `from collections import Counter, defaultdict` (replace the existing `defaultdict` import), and in `summary_stage` add before the final `return None`:
+```python
+    if d.startswith("house agreed to senate amendment") or d.startswith("senate agreed to house amendment"):
+        return "passed"
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `python3 -m unittest tests.test_delays_json -v`
-Expected: 5 tests, OK
+Expected: 7 tests, OK
 
 - [ ] **Step 5: Regenerate the real and fixture outputs, commit**
 
@@ -157,7 +186,7 @@ python3 -c "import json; d=json.load(open('data/delays.json')); print(len(d['rec
 git add delays.py tests/test_delays_json.py data/delays.json tests/fixture/delays.json
 git commit -m "Bill Delay Tracker: delays.json, one record per bill-stage for the dashboard"
 ```
-Expected print: `19982 records` is NOT expected — `text` only holds stage-mapped versions, so the count is the number of (bill, stage) pairs; roughly 17,000–18,000. Any number greater than the 5,289 rows in `delays.csv` is right.
+Expected print: `19982 records` (one per row of `data/versions.csv`).
 
 ---
 
@@ -173,7 +202,7 @@ Expected print: `19982 records` is NOT expected — `text` only holds stage-mapp
 **Interfaces:**
 - Consumes: `data/delays.json` from Task 1.
 - Produces, in `metrics.js` (ES module, no d3, no DOM):
-  - `headerMetrics(records) → {bills, summarized, waiting, reported, pagesTotal, pagesCounted, versions, n, lagMean, lagMedian, lagMax}` — `lag*` are `null` when `n === 0`.
+  - `headerMetrics(records) → {bills, summarized, waiting, reported, pagesTotal, pagesCounted, versions, n, lagMean, lagMedian, lagMax}` — `lag*` are `null` when `n === 0`; `waiting` counts only records with a stage (`stage !== null`) and no lag, since unmapped editions never get a summary of their own.
   - `binLags(records, width, maxBins = 20) → [{from, to, count}]` — `to` is `null` on the last (open) bin; every lag ≥ `(maxBins-1)*width` lands there; empty input → `[]`.
   - `filterRecords(records, state)` is added in Task 3; `monthlySeries` in Task 4.
 - Produces, in `dashboard.js`: `render(state)`; `state = {records, stage: 'introduced', type: 'all', range: null, width: 30}`.
@@ -194,14 +223,15 @@ test('headerMetrics counts bills, summarized, waiting, reported, pages', () => {
     rec({ number: '1', lag_days: 10, summary_date: '2025-01-20', pages: 5, reported: true }),
     rec({ number: '2', lag_days: 30, summary_date: '2025-02-09', pages: null }),
     rec({ number: '3' }),
+    rec({ number: '3', stage: null, pages: 7 }),
   ]);
   assert.equal(m.bills, 3);
   assert.equal(m.summarized, 2);
   assert.equal(m.waiting, 1);
   assert.equal(m.reported, 1);
-  assert.equal(m.pagesTotal, 5);
-  assert.equal(m.pagesCounted, 1);
-  assert.equal(m.versions, 3);
+  assert.equal(m.pagesTotal, 12);
+  assert.equal(m.pagesCounted, 2);
+  assert.equal(m.versions, 4);
   assert.equal(m.n, 2);
   assert.equal(m.lagMean, 20);
   assert.equal(m.lagMedian, 20);
@@ -262,7 +292,7 @@ export function headerMetrics(records) {
   return {
     bills: new Set(records.map(billKey)).size,
     summarized: new Set(summarized.map(billKey)).size,
-    waiting: records.length - summarized.length,
+    waiting: records.filter((r) => r.stage !== null && r.lag_days === null).length,
     reported: new Set(records.filter((r) => r.reported).map(billKey)).size,
     pagesTotal: withPages.reduce((s, r) => s + r.pages, 0),
     pagesCounted: withPages.length,
@@ -356,10 +386,11 @@ function card(label, value, note = '') {
   return `<div class="card"><div class="value">${value}</div><div class="label">${label}</div><div class="note">${note}</div></div>`;
 }
 
-function renderHeader(records) {
+function renderHeader(records, allVersions) {
   const m = headerMetrics(records);
+  const p = headerMetrics(allVersions); // pages count every edition, not only the staged one
   document.getElementById('cards').innerHTML = [
-    card('pages of bill text', fmt(m.pagesTotal), `${fmt(m.pagesCounted)} of ${fmt(m.versions)} versions counted`),
+    card('pages of bill text', fmt(p.pagesTotal), `${fmt(p.pagesCounted)} of ${fmt(p.versions)} versions counted`),
     card('bills summarized', fmt(m.summarized), `${fmt(m.waiting)} still waiting`),
     card('reported by committee', fmt(m.reported), 'bills with an rh/rs text version'),
     card('mean lag (days)', day(m.lagMean), `n=${fmt(m.n)}`),
@@ -410,7 +441,7 @@ function renderHistogram(records, width) {
 
 export function render(state) {
   const records = inView(state);
-  renderHeader(records);
+  renderHeader(records, state.records);
   renderHistogram(records, state.width);
 }
 
@@ -509,7 +540,7 @@ Replace the import line and `inView`:
 ```js
 import { headerMetrics, binLags, filterRecords } from './metrics.js';
 ```
-Delete the `inView` function. In `render`, replace `const records = inView(state);` with `const records = filterRecords(state.records, state);`.
+Delete the `inView` function. In `render`, replace `const records = inView(state);` with `const records = filterRecords(state.records, state);` and the header call with `renderHeader(records, filterRecords(state.records, { stage: 'all', type: state.type, range: state.range }));` so pages follow type and range but count every edition.
 
 Add before `export function render`:
 ```js
@@ -806,4 +837,109 @@ Expected: 7 node tests pass, 5 unittest pass.
 ```bash
 git add ../prototype-bill-delay-tracker.md README.md
 git commit -m "Bill Delay Tracker: document the dashboard"
+```
+
+---
+
+### Task 7: Cumulative bills with text vs bills summarized
+
+**Files:**
+- Modify: `dashboard/metrics.js` (add `cumulativeSeries`)
+- Modify: `dashboard/metrics.test.mjs`
+- Modify: `dashboard/dashboard.js` (add `renderCumulative`)
+- Modify: `dashboard/index.html` (add `<figure id="cumulative"></figure>` after `#timeseries`)
+
+**Interfaces:**
+- Produces: `cumulativeSeries(records) → [{date: 'YYYY-MM-DD', withText, summarized}]` — one point per distinct date on which either count changes, sorted; `withText` counts distinct bills whose earliest `text_date` ≤ date, `summarized` counts distinct bills whose earliest `summary_date` ≤ date. Records with `stage: null` are ignored (they are later editions).
+- Computed from records filtered by stage and type only (never range), like the timeseries.
+
+- [ ] **Step 1: Write the failing test**
+
+Append to `metrics.test.mjs` (add `cumulativeSeries` to the import):
+```js
+test('cumulativeSeries counts distinct bills with text and with a summary by date', () => {
+  const s = cumulativeSeries([
+    rec({ number: '1', text_date: '2025-01-03', summary_date: '2025-01-20', lag_days: 17 }),
+    rec({ number: '2', text_date: '2025-01-03' }),
+    rec({ number: '3', text_date: '2025-02-01', summary_date: '2025-02-01', lag_days: 0 }),
+    rec({ number: '3', stage: null, text_date: '2025-03-01', pages: 4 }),
+  ]);
+  assert.deepEqual(s, [
+    { date: '2025-01-03', withText: 2, summarized: 0 },
+    { date: '2025-01-20', withText: 2, summarized: 1 },
+    { date: '2025-02-01', withText: 3, summarized: 2 },
+  ]);
+  assert.deepEqual(cumulativeSeries([]), []);
+});
+```
+
+- [ ] **Step 2: Run tests to verify it fails**
+
+Run: `node --test dashboard/metrics.test.mjs`
+Expected: SyntaxError: `cumulativeSeries` not exported
+
+- [ ] **Step 3: Add `cumulativeSeries` to `metrics.js`**
+
+```js
+/** Running counts of distinct bills with any text and with any summary, by date. */
+export function cumulativeSeries(records) {
+  const firstText = new Map(), firstSummary = new Map();
+  for (const r of records) {
+    if (r.stage === null) continue;
+    const k = billKey(r);
+    if (!firstText.has(k) || r.text_date < firstText.get(k)) firstText.set(k, r.text_date);
+    if (r.summary_date !== null && (!firstSummary.has(k) || r.summary_date < firstSummary.get(k))) firstSummary.set(k, r.summary_date);
+  }
+  const dates = [...new Set([...firstText.values(), ...firstSummary.values()])].sort();
+  const textDates = [...firstText.values()].sort(), summaryDates = [...firstSummary.values()].sort();
+  const countLE = (sorted, d) => { let lo = 0, hi = sorted.length; while (lo < hi) { const mid = (lo + hi) >> 1; if (sorted[mid] <= d) lo = mid + 1; else hi = mid; } return lo; };
+  return dates.map((date) => ({ date, withText: countLE(textDates, date), summarized: countLE(summaryDates, date) }));
+}
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `node --test dashboard/metrics.test.mjs`
+Expected: 8 passed
+
+- [ ] **Step 5: Draw it**
+
+Import `cumulativeSeries`. Add before `export function render`:
+```js
+function renderCumulative(records) {
+  const series = cumulativeSeries(records);
+  const W = 920, H = 300, left = 76, right = 16, top = 36, bottom = 56;
+  const fig = d3.select('#cumulative').html('');
+  if (series.length === 0) return;
+  const parse = d3.utcParse('%Y-%m-%d');
+  const x = d3.scaleUtc().domain(d3.extent(series, (s) => parse(s.date))).range([left, W - right]);
+  const y = d3.scaleLinear().domain([0, d3.max(series, (s) => s.withText)]).nice().range([H - bottom, top]);
+  const svg = fig.append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Cumulative bills with text and with a summary');
+  svg.append('text').attr('x', left).attr('y', 18).attr('font-size', 14).attr('font-weight', 600).attr('fill', INK)
+    .text('Congress to date: bills with text issued, and bills with a CRS summary. The gap is the backlog.');
+  svg.append('g').attr('transform', `translate(${left},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(fmt)).call((g) => g.select('.domain').remove());
+  svg.append('g').attr('transform', `translate(0,${H - bottom})`).call(d3.axisBottom(x).ticks(d3.utcMonth.every(2)).tickFormat(d3.utcFormat('%b %Y'))).call((g) => g.select('.domain').remove());
+  svg.append('text').attr('transform', `translate(14,${(top + H - bottom) / 2}) rotate(-90)`).attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK).text('bills');
+  const line = (key) => d3.line().curve(d3.curveStepAfter).x((s) => x(parse(s.date))).y((s) => y(s[key]));
+  svg.append('path').datum(series).attr('d', line('withText')).attr('fill', 'none').attr('stroke', BLUE).attr('stroke-width', 2);
+  svg.append('path').datum(series).attr('d', line('summarized')).attr('fill', 'none').attr('stroke', RED).attr('stroke-width', 2);
+  const last = series[series.length - 1];
+  svg.append('text').attr('x', W - right).attr('y', y(last.withText) - 6).attr('font-size', 11).attr('text-anchor', 'end').attr('fill', BLUE).text(`${fmt(last.withText)} with text`);
+  svg.append('text').attr('x', W - right).attr('y', y(last.summarized) - 6).attr('font-size', 11).attr('text-anchor', 'end').attr('fill', RED).text(`${fmt(last.summarized)} summarized`);
+}
+```
+In `render(state)` after the timeseries call:
+```js
+  renderCumulative(filterRecords(state.records, { stage: state.stage, type: state.type, range: null }));
+```
+
+- [ ] **Step 6: Check in a browser**
+
+Serve as before. Two step lines rising left to right; blue above red; end labels match the "bills summarized" card plus its waiting count. Switch Stage to "Reported by committee": both lines shrink to that stage's bills.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add dashboard
+git commit -m "Bill Delay Tracker: cumulative bills with text vs summarized"
 ```
