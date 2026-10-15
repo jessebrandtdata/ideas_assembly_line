@@ -46,8 +46,8 @@ export function binLags(records, width) {
   return bins;
 }
 
-/** Records in view. range is null or {from, to} as 'YYYY-MM' or null (open side); inclusive on the introduction month.
- *  A from later than to is treated as no range. */
+/** Records in view. range is null or {from, to} as ISO 'YYYY-MM-DD' or null (open side); inclusive of both days, compared on text_date.
+ *  ISO dates sort as strings, so no Date objects. A from later than to is treated as no range. */
 export function filterRecords(records, { stage = 'all', type = 'all', range = null }) {
   const from = range?.from || null, to = range?.to || null;
   const ranged = !(from && to && from > to) && (from || to);
@@ -55,17 +55,18 @@ export function filterRecords(records, { stage = 'all', type = 'all', range = nu
     if (stage !== 'all' && r.stage !== stage) return false;
     if (type !== 'all' && r.type !== type) return false;
     if (!ranged) return true;
-    const month = r.text_date.slice(0, 7);
-    return (!from || month >= from) && (!to || month <= to);
+    return (!from || r.text_date >= from) && (!to || r.text_date <= to);
   });
 }
 
-const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-/** Months present in the records' text_date, in order: [{ value: 'YYYY-MM', label: 'Jan 2025' }]. Feeds the month selects. */
-export function monthOptions(records) {
-  return [...new Set(records.map((r) => r.text_date.slice(0, 7)))].sort()
-    .map((value) => ({ value, label: `${MONTH_ABBR[+value.slice(5, 7) - 1]} ${value.slice(0, 4)}` }));
+/** Earliest and latest text_date in the records ({min, max}, ISO dates; both null when empty). Bounds the date inputs. */
+export function dateBounds(records) {
+  let min = null, max = null;
+  for (const r of records) {
+    if (min === null || r.text_date < min) min = r.text_date;
+    if (max === null || r.text_date > max) max = r.text_date;
+  }
+  return { min, max };
 }
 
 /** Per month of text_date: how many got a summary, how many wait, and lag quantiles among the summarized. */

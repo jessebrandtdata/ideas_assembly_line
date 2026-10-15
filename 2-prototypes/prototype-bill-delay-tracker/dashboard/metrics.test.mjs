@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativePages, histogramMax, monthOptions } from './metrics.js';
+import { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativePages, histogramMax, dateBounds } from './metrics.js';
 
 const rec = (o) => ({ type: 'hr', number: '1', stage: 'introduced', text_date: '2025-01-10',
   summary_date: null, lag_days: null, pages: null, reported: false, title: 't', ...o });
@@ -53,7 +53,7 @@ test('binLags on empty input and on only-waiting input', () => {
   assert.deepEqual(binLags([rec()], 30), []);
 });
 
-test('filterRecords by stage, type, and inclusive month range', () => {
+test('filterRecords by stage, type, and inclusive day range', () => {
   const rs = [
     rec({ number: '1', stage: 'introduced', type: 'hr', text_date: '2025-01-10' }),
     rec({ number: '2', stage: 'reported', type: 'hr', text_date: '2025-03-10' }),
@@ -62,18 +62,20 @@ test('filterRecords by stage, type, and inclusive month range', () => {
   assert.equal(filterRecords(rs, { stage: 'all', type: 'all', range: null }).length, 3);
   assert.deepEqual(filterRecords(rs, { stage: 'introduced', type: 'all', range: null }).map((r) => r.number), ['1', '3']);
   assert.deepEqual(filterRecords(rs, { stage: 'all', type: 's', range: null }).map((r) => r.number), ['3']);
-  assert.deepEqual(filterRecords(rs, { stage: 'all', type: 'all', range: { from: '2025-03', to: '2025-06' } }).map((r) => r.number), ['2', '3']);
-  assert.deepEqual(filterRecords(rs, { stage: 'all', type: 'all', range: { from: '2026-01', to: '2026-12' } }), []);
+  assert.deepEqual(filterRecords(rs, { stage: 'all', type: 'all', range: { from: '2025-03-10', to: '2025-06-30' } }).map((r) => r.number), ['2', '3']);
+  assert.deepEqual(filterRecords(rs, { stage: 'all', type: 'all', range: { from: '2026-01-01', to: '2026-12-31' } }), []);
 });
 
-test('filterRecords honours from-only, to-only, both, and treats an inverted range as none', () => {
+test('filterRecords honours day ranges: from-only, to-only, both inclusive at the boundary day, inverted = none', () => {
   const rs = ['2025-01-31', '2025-02-01', '2025-03-15', '2025-04-30'].map((d, i) => rec({ number: String(i), text_date: d }));
   const nums = (range) => filterRecords(rs, { range }).map((r) => r.number);
-  assert.deepEqual(nums({ from: '2025-02', to: null }), ['1', '2', '3']);
-  assert.deepEqual(nums({ from: null, to: '2025-03' }), ['0', '1', '2']);
-  assert.deepEqual(nums({ from: '2025-02', to: '2025-03' }), ['1', '2']);
-  assert.deepEqual(nums({ from: '2025-04', to: '2025-04' }), ['3']);
-  assert.deepEqual(nums({ from: '2025-04', to: '2025-02' }), ['0', '1', '2', '3']);
+  assert.deepEqual(nums({ from: '2025-02-01', to: null }), ['1', '2', '3']);
+  assert.deepEqual(nums({ from: '2025-02-02', to: null }), ['2', '3']);
+  assert.deepEqual(nums({ from: null, to: '2025-03-15' }), ['0', '1', '2']);
+  assert.deepEqual(nums({ from: null, to: '2025-03-14' }), ['0', '1']);
+  assert.deepEqual(nums({ from: '2025-02-01', to: '2025-03-15' }), ['1', '2']);
+  assert.deepEqual(nums({ from: '2025-04-30', to: '2025-04-30' }), ['3']);
+  assert.deepEqual(nums({ from: '2025-04-01', to: '2025-02-01' }), ['0', '1', '2', '3']);
   assert.deepEqual(nums({ from: null, to: null }), ['0', '1', '2', '3']);
 });
 
@@ -168,7 +170,7 @@ test('headerMetrics.reported counts distinct bills with a reported-stage record,
     rec({ number: '3', stage: 'reported', type: 's', text_date: '2025-05-01' }),
   ];
   assert.equal(headerMetrics(rs).reported, 2);
-  const ranged = filterRecords(rs, { type: 'all', range: { from: '2025-04', to: '2025-06' } });
+  const ranged = filterRecords(rs, { type: 'all', range: { from: '2025-04-01', to: '2025-06-30' } });
   assert.equal(headerMetrics(ranged).reported, 1);
 });
 
@@ -187,16 +189,15 @@ test('cumulativeSeries over a filtered subset ends at the headerMetrics of that 
     rec({ number: '3', text_date: '2025-01-05', lag_days: 4, summary_date: '2025-01-09' }),
     rec({ number: '4', text_date: '2025-11-05' }),
   ];
-  const subset = filterRecords(rs, { stage: 'introduced', type: 'all', range: { from: '2025-04', to: '2025-10' } });
+  const subset = filterRecords(rs, { stage: 'introduced', type: 'all', range: { from: '2025-04-01', to: '2025-10-31' } });
   const m = headerMetrics(subset), end = cumulativeSeries(subset).at(-1);
   assert.equal(end.summarized, m.summarized);
   assert.equal(end.withText, m.summarized + m.waiting);
   assert.equal(end.withText, 2);
 });
 
-test('monthOptions lists the distinct months present, in order, labelled Mon YYYY', () => {
-  const rs = [rec({ text_date: '2025-03-10' }), rec({ text_date: '2025-01-02' }), rec({ text_date: '2025-03-30' }), rec({ text_date: '2026-10-01' })];
-  assert.deepEqual(monthOptions(rs), [
-    { value: '2025-01', label: 'Jan 2025' }, { value: '2025-03', label: 'Mar 2025' }, { value: '2026-10', label: 'Oct 2026' }]);
-  assert.deepEqual(monthOptions([]), []);
+test('dateBounds is the earliest and latest text_date, ISO strings', () => {
+  const rs = [rec({ text_date: '2025-03-10' }), rec({ text_date: '2025-01-02' }), rec({ text_date: '2026-10-01' })];
+  assert.deepEqual(dateBounds(rs), { min: '2025-01-02', max: '2026-10-01' });
+  assert.deepEqual(dateBounds([]), { min: null, max: null });
 });

@@ -52,7 +52,7 @@ Fetches `../data/delays.json` relative to the page. Opens from
 
 Header row, recomputed from the filtered records: pages processed (with "n of m
 versions counted"), bills summarized, bills reported by committee (distinct bills with a reported-stage record under the type
-filter and month range, ignoring the stage select), mean /
+filter and date range, ignoring the stage select), mean /
 median / max lag in days.
 
 ## Histogram
@@ -71,15 +71,15 @@ title names both counts either way. The strip under the chart holds the slider (
 1. data contract (`delays.json`, test)
 2. histogram + header row (static page; minimal hand-over)
 3. filters: stage (default "All stages", listed first) and bill type `<select>`s; header and histogram re-render
-4. timeseries by month introduced under the histogram; the month range is set in
-   the top controls row (Introduced from / to, two `<select>`s listing the months present in the data,
-   "Jan 2025" to the last month, in order; a blank first option = open side; "Clear date filters"
-   resets both; from after to = no range). Tab order: stage, type, from, to, clear, then the
-   histogram's slider and checkbox) and filters every card and chart; the chart shades the selected months
+4. timeseries by month introduced under the histogram; the date range is set in
+   the top controls row (Introduced from / to, two `<input type="date">`s whose `min`/`max` are the earliest and
+   latest text date in the data, derived from the records; empty = open side; day precision, inclusive of both
+   days, on the text version's issue date; "Clear date filters" resets both; from after to = no range).
+   Tab order: stage, type, from, to, clear, then the histogram's slider and checkbox) and filters every card and chart; the chart shades every month band the range touches (a partial month is shaded whole)
 5. polish: bin width slider, hover tooltip (bin range, count, share of
    filtered), keyboard-reachable controls
 6. cumulative bills with text vs bills with a CRS summary (the gap is the backlog)
-   Charts 6 and 7 use the same type filter and month range as the cards; titles read "Congress to date", or name the range ("Jul 2025 – Feb 2026", "from Jul 2025", "to Feb 2026").
+   Charts 6 and 7 use the same type filter and date range as the cards; titles read "Congress to date", or name the range ("3 Mar 2025 – 30 Jun 2025", "from 3 Mar 2025", "to 30 Jun 2025").
 7. cumulative pages of text issued vs pages covered by a summary (follows the stage filter)
 
 State is one object; `render(state)` redraws everything from it.

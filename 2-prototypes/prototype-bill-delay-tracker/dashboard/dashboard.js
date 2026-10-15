@@ -1,4 +1,4 @@
-import { headerMetrics, binLags, histogramMax, filterRecords, monthOptions, monthlySeries, cumulativeSeries, cumulativePages } from './metrics.js';
+import { headerMetrics, binLags, histogramMax, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativePages } from './metrics.js';
 
 const BLUE = '#104378', RED = '#b2182b', INK = '#1f2933', MUTED = '#6b7280';
 let fmt; // assigned in main() once d3 is known to be loaded
@@ -108,18 +108,18 @@ function select(id, label, options, value) {
 function renderControls(state) {
   const el = document.getElementById('controls');
   if (el.children.length) return; // built once; inputs keep their own value
-  const monthSelect = (id, label) => `<label>${label}<select id="${id}"><option value=""></option>${monthOptions(state.records).map((o) =>
-    `<option value="${o.value}">${o.label}</option>`).join('')}</select></label>`;
+  const { min, max } = dateBounds(state.records);
+  const dateInput = (id, label) => `<label>${label}<input type="date" id="${id}" min="${min}" max="${max}"></label>`;
   el.innerHTML = select('stage', 'Stage', STAGES, state.stage) + select('type', 'Bill type', TYPES, state.type)
-    + monthSelect('month-from', 'Introduced from') + monthSelect('month-to', 'to')
+    + dateInput('date-from', 'Introduced from') + dateInput('date-to', 'to')
     + '<button id="clear-dates" type="button">Clear date filters</button>';
-  const from = el.querySelector('#month-from'), to = el.querySelector('#month-to');
+  const from = el.querySelector('#date-from'), to = el.querySelector('#date-to');
   el.querySelector('#stage').addEventListener('change', (e) => { state.stage = e.target.value; render(state); });
   el.querySelector('#type').addEventListener('change', (e) => { state.type = e.target.value; render(state); });
-  const months2 = () => { state.range = { from: from.value || null, to: to.value || null }; render(state); };
-  from.addEventListener('change', months2);
-  to.addEventListener('change', months2);
-  el.querySelector('#clear-dates').addEventListener('click', () => { from.value = ''; to.value = ''; months2(); });
+  const setRange = () => { state.range = { from: from.value || null, to: to.value || null }; render(state); };
+  from.addEventListener('change', setRange);
+  to.addEventListener('change', setRange);
+  el.querySelector('#clear-dates').addEventListener('click', () => { from.value = ''; to.value = ''; setRange(); });
   const waiting = document.getElementById('include-waiting');
   waiting.checked = state.includeWaiting;
   waiting.addEventListener('change', (e) => { state.includeWaiting = e.target.checked; renderHistogram(currentRecords(state), state); });
@@ -134,13 +134,13 @@ function renderControls(state) {
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const monthLabel = (m) => MONTHS[+m.slice(5, 7) - 1];
-const monthName = (m) => `${monthLabel(m)} ${m.slice(0, 4)}`;
-/** The month range if it is a usable one (not inverted), else null. */
+const dayName = (d) => `${+d.slice(8, 10)} ${monthLabel(d)} ${d.slice(0, 4)}`;
+/** The date range if it is a usable one (not inverted), else null. */
 const activeRange = (r) => ((r.from || r.to) && !(r.from && r.to && r.from > r.to) ? r : null);
 const rangeLabel = (r) => {
   const a = activeRange(r);
   if (!a) return 'Congress to date';
-  return a.from && a.to ? `${monthName(a.from)} – ${monthName(a.to)}` : a.from ? `from ${monthName(a.from)}` : `to ${monthName(a.to)}`;
+  return a.from && a.to ? `${dayName(a.from)} – ${dayName(a.to)}` : a.from ? `from ${dayName(a.from)}` : `to ${dayName(a.to)}`;
 };
 const currentRecords = (state) => filterRecords(state.records, state);
 
@@ -154,8 +154,8 @@ function renderTimeseries(records, state) {
     .text('By month the text was issued: share with a CRS summary, and lag among those summarized.');
   const x = d3.scaleBand().domain(series.map((s) => s.month)).range([left, W - right]).padding(0.18);
   const sel = activeRange(state.range);
-  if (sel) { // shaded band behind everything: the months the page is filtered to
-    const inside = series.filter((s) => (!sel.from || s.month >= sel.from) && (!sel.to || s.month <= sel.to));
+  if (sel) { // shaded band behind everything: every month band the selected days touch (a partial month is shaded whole)
+    const inside = series.filter((s) => (!sel.from || s.month >= sel.from.slice(0, 7)) && (!sel.to || s.month <= sel.to.slice(0, 7)));
     if (inside.length) {
       const x0 = x(inside[0].month) - x.step() * x.paddingInner() / 2, x1 = x(inside.at(-1).month) + x.bandwidth() + x.step() * x.paddingInner() / 2;
       svg.append('rect').attr('id', 'month-band').attr('x', x0).attr('y', topY).attr('width', x1 - x0).attr('height', botY + botH - topY)
