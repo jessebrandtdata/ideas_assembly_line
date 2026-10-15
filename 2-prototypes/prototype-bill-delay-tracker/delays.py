@@ -137,6 +137,23 @@ def main():
         if xs:
             stage_stats[stage] = {"n": len(xs), "mean": round(statistics.mean(xs), 1),
                                   "median": statistics.median(xs), "max": max(xs), "min": min(xs)}
+    # by month of introduction: how many got a summary, how many still wait, and the lag
+    # among those summarized. Recent months are right-censored: only the fast ones count.
+    months = defaultdict(lambda: {"summarized": 0, "awaiting": 0, "lags": []})
+    for d in delays:
+        if d["stage"] == "introduced":
+            m = months[d["text_date"][:7]]
+            m["summarized"] += 1
+            m["lags"].append(d["delay_days"])
+    for r in awaiting:
+        months[r["text_date"][:7]]["awaiting"] += 1
+    monthly = []
+    for month in sorted(months):
+        m = months[month]
+        xs = sorted(m["lags"])
+        monthly.append({"month": month, "summarized": m["summarized"], "awaiting": m["awaiting"],
+                        "median_lag": statistics.median(xs) if xs else None,
+                        "p90_lag": xs[min(len(xs) - 1, int(len(xs) * 0.9))] if xs else None})
     all_delays = [d["delay_days"] for d in delays]
     intro = by_stage.get("introduced", [])
     known_pages = [pages[v["package_id"]] for v in versions if v["package_id"] in pages]
@@ -158,6 +175,7 @@ def main():
         "by_stage": stage_stats,
         "introduced_histogram": histogram(intro, [0, 7, 14, 30, 60, 90, 180, 365]),
         "awaiting_histogram": histogram([r["age_days"] for r in awaiting], [0, 7, 14, 30, 60, 90, 180, 365]),
+        "monthly_introduced": monthly,
         "summaries_collected": len(summaries),
         "caveats": [
             "delay = summary last-update date minus the date printed on the text version; the API has no first-published date for summaries, so revised summaries overstate the lag",

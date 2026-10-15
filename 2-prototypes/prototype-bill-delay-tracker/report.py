@@ -31,6 +31,52 @@ def bar_chart(bins, title, color):
     return "".join(out)
 
 
+def timeseries_chart(monthly):
+    """Two panels over month of introduction: share summarized vs still waiting,
+    and median / 90th-percentile lag among the summarized."""
+    w, left, right, gap = 920, 56, 16, 10
+    n = max(len(monthly), 1)
+    slot = (w - left - right) / n
+    bw = slot - gap
+    top_h, bot_h, top_y, bot_y = 150, 170, 48, 250
+    h = bot_y + bot_h + 60
+    lags = [m["p90_lag"] for m in monthly if m["p90_lag"] is not None] or [1]
+    ymax = max(lags)
+    out = [f'<svg viewBox="0 0 {w} {h}" role="img" aria-label="Lag by month of introduction" style="max-width:100%;height:auto">']
+    out.append(f'<text x="{left}" y="18" font-size="14" font-weight="600" fill="{INK}">Bills by month of introduction: share with a CRS summary, and lag among those summarized</text>')
+    for i, m in enumerate(monthly):
+        x = left + i * slot
+        tot = m["summarized"] + m["awaiting"] or 1
+        sh = top_h * m["summarized"] / tot
+        out.append(f'<rect x="{x:.1f}" y="{top_y + top_h - sh:.1f}" width="{bw:.1f}" height="{sh:.1f}" fill="{BLUE}"><title>{m["month"]}: {m["summarized"]} summarized, {m["awaiting"]} waiting</title></rect>')
+        out.append(f'<rect x="{x:.1f}" y="{top_y:.1f}" width="{bw:.1f}" height="{top_h - sh:.1f}" fill="{GOLD}"><title>{m["month"]}: {m["awaiting"]} waiting</title></rect>')
+        out.append(f'<text x="{x + bw / 2:.1f}" y="{top_y + top_h + 14}" font-size="10" text-anchor="middle" fill="{MUTED}">{m["month"][2:]}</text>')
+        out.append(f'<text x="{x + bw / 2:.1f}" y="{bot_y + bot_h + 14}" font-size="10" text-anchor="middle" fill="{MUTED}">{m["month"][2:]}</text>')
+    for frac, label in ((0, "0%"), (0.5, "50%"), (1, "100%")):
+        y = top_y + top_h - top_h * frac
+        out.append(f'<line x1="{left}" x2="{w - right}" y1="{y:.1f}" y2="{y:.1f}" stroke="#e5e7eb"/>')
+        out.append(f'<text x="{left - 6}" y="{y + 4:.1f}" font-size="10" text-anchor="end" fill="{MUTED}">{label}</text>')
+    out.append(f'<rect x="{left}" y="{top_y - 14}" width="10" height="10" fill="{BLUE}"/><text x="{left + 14}" y="{top_y - 5}" font-size="11" fill="{INK}">has introduced-stage summary</text>')
+    out.append(f'<rect x="{left + 190}" y="{top_y - 14}" width="10" height="10" fill="{GOLD}"/><text x="{left + 204}" y="{top_y - 5}" font-size="11" fill="{INK}">still waiting</text>')
+
+    def yy(v):
+        return bot_y + bot_h - bot_h * v / ymax
+    for v in sorted({0, ymax // 2, ymax}):
+        out.append(f'<line x1="{left}" x2="{w - right}" y1="{yy(v):.1f}" y2="{yy(v):.1f}" stroke="#e5e7eb"/>')
+        out.append(f'<text x="{left - 6}" y="{yy(v) + 4:.1f}" font-size="10" text-anchor="end" fill="{MUTED}">{int(v)}d</text>')
+    for key, color, dash, label, lx in (("p90_lag", MUTED, ' stroke-dasharray="4 3"', "90th percentile lag", left + 150), ("median_lag", BLUE, "", "median lag (days)", left)):
+        pts = [(left + i * slot + bw / 2, yy(m[key])) for i, m in enumerate(monthly) if m[key] is not None]
+        if pts:
+            out.append(f'<polyline fill="none" stroke="{color}" stroke-width="2"{dash} points="{" ".join(f"{x:.1f},{y:.1f}" for x, y in pts)}"/>')
+            for (x, y), m in zip(pts, [m for m in monthly if m[key] is not None]):
+                out.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="2.5" fill="{color}"><title>{m["month"]}: {label} {m[key]:.0f} days (n={m["summarized"]})</title></circle>')
+        out.append(f'<line x1="{lx}" x2="{lx + 18}" y1="{bot_y - 9}" y2="{bot_y - 9}" stroke="{color}" stroke-width="2"{dash}/><text x="{lx + 24}" y="{bot_y - 5}" font-size="11" fill="{INK}">{label}</text>')
+    out.append(f'<text x="{left}" y="{h - 20}" font-size="11" fill="{MUTED}">Right-censored: in recent months only the bills already summarized count toward the lag lines, so they fall at the right edge.</text>')
+    out.append(f'<text x="{left}" y="{h - 6}" font-size="11" fill="{MUTED}">The gold share above is the honest companion: those bills have no lag yet because they have no summary yet.</text>')
+    out.append("</svg>")
+    return "".join(out)
+
+
 def card(label, value, note=""):
     return (f'<div class="card"><div class="value">{esc(value)}</div><div class="label">{esc(label)}</div>'
             f'<div class="note">{esc(note)}</div></div>')
@@ -90,6 +136,8 @@ footer{{color:{MUTED};font-size:12px;margin-top:24px}}
 {bar_chart(st['introduced_histogram'], 'Introduced text → introduced summary, lag in days', BLUE)}
 {bar_chart(st['awaiting_histogram'], 'Introduced text still without a summary, age in days', GOLD)}
 </div>
+<h2>Over time</h2>
+{timeseries_chart(st.get('monthly_introduced', []))}
 <h2>Lag by stage</h2>
 {table(stage_rows, ['stage', 'n', 'mean', 'median', 'min', 'max'])}
 <h2>Longest lags</h2>
