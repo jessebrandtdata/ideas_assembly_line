@@ -237,9 +237,16 @@ function standaloneSvg(svg) {
       if (v) dst[i].style.setProperty(p, v);
     }
   });
-  // the fallback font is wider than the webfont: pin the title (first text) to the width it has on the page so it cannot clip
-  const srcTitle = svg.querySelector('text'), dstTitle = clone.querySelector('text');
-  if (srcTitle && dstTitle) { dstTitle.setAttribute('textLength', srcTitle.getComputedTextLength()); dstTitle.setAttribute('lengthAdjust', 'spacingAndGlyphs'); }
+  const dstTitle = clone.querySelector('text');
+  // the fallback font is wider than the webfont: shrink only the exported title (never below 12 px) until it fits the canvas with a right margin
+  if (dstTitle) {
+    const ctx = document.createElement('canvas').getContext('2d');
+    const base = parseFloat(dstTitle.style.getPropertyValue('font-size')) || 14;
+    ctx.font = `${dstTitle.style.getPropertyValue('font-weight') || 600} ${base}px system-ui, sans-serif`;
+    const room = vb.width - (+dstTitle.getAttribute('x') || 0) - 12;
+    const fit = Math.floor(base * Math.min(1, room / ctx.measureText(dstTitle.textContent).width) * 10) / 10;
+    dstTitle.style.setProperty('font-size', `${Math.max(12, fit)}px`);
+  }
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
   clone.setAttribute('width', vb.width);
   // breathing room above the title: every title sits in the svg with its baseline 13-18 px down, so push the content down until ~20 px of white is above its cap height
