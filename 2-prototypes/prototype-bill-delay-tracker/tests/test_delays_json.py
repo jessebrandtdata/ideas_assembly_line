@@ -30,14 +30,20 @@ class DelaysJson(unittest.TestCase):
         self.assertEqual(self.doc["congress"], "119")
 
     def test_one_record_per_version(self):
-        # fixture: hr1 rh + eh, hr10786 ih, hr10779 ih, plus one unmapped rfs edition of hr1
-        self.assertEqual(len(self.records), 5)
+        # fixture: hr1 rh + eh + eah (later passed-stage edition), hr10786 ih, hr10779 ih, plus one unmapped rfs edition of hr1
+        self.assertEqual(len(self.records), 6)
         keys = sorted((r["type"], r["number"], r["stage"] or "-") for r in self.records)
-        self.assertEqual(keys, [("hr", "1", "-"), ("hr", "1", "passed"), ("hr", "1", "reported"),
+        self.assertEqual(keys, [("hr", "1", "-"), ("hr", "1", "-"), ("hr", "1", "passed"), ("hr", "1", "reported"),
                                 ("hr", "10779", "introduced"), ("hr", "10786", "introduced")])
 
+    def test_later_edition_of_a_staged_stage_has_no_stage(self):
+        r = next(r for r in self.records if r["text_date"] == "2025-07-02")
+        self.assertIsNone(r["stage"])
+        self.assertIsNone(r["lag_days"])
+        self.assertEqual(sum(1 for r in self.records if r["stage"] == "passed"), 1)
+
     def test_unmapped_version_keeps_pages_and_has_no_stage(self):
-        r = next(r for r in self.records if r["stage"] is None)
+        r = next(r for r in self.records if r["stage"] is None and r["text_date"] == "2025-05-23")
         self.assertEqual(r["pages"], 900)
         self.assertIsNone(r["lag_days"])
 

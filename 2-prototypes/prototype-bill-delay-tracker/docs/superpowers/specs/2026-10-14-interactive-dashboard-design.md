@@ -28,14 +28,21 @@ is a later affordance, not in this spec.
 
 ```json
 {"as_of": "2026-10-14", "congress": "119",
+ "summary_before_text": {"introduced": 41, "reported": 2},
  "records": [{"type": "hr", "number": "360", "stage": "introduced",
               "text_date": "2025-01-13", "summary_date": "2026-10-01",
-              "lag_days": 626, "pages": 12, "title": "..."}]}
+              "lag_days": 626, "pages": 12, "reported": false, "title": "..."}]}
 ```
 
-One record per bill-stage. Waiting records carry `summary_date: null` and
-`lag_days: null`. `pages` is `null` when not looked up. The page derives
-everything from `records`; `stats.json` stays for the Python report.
+One record per text version. `stage` is `introduced`, `reported`, `passed` or
+`enrolled` for the earliest edition mapped to that stage and `null` for unmapped
+editions and for later editions of an already-staged stage; `null`-stage records
+carry `pages` only and never a summary. `reported` is true when the bill has an
+`rh` or `rs` text version. Waiting records carry `summary_date: null` and
+`lag_days: null`. `pages` is `null` when not looked up.
+`summary_before_text` counts summaries, by stage, whose bill has no text version at
+that stage in GovInfo. The page derives everything from `records`; `stats.json`
+stays for the Python report.
 
 ## Page
 
@@ -64,6 +71,8 @@ for median and mean. Count label on each bar. One red bar at the right edge,
    date range that filters header and histogram; clearing resets
 5. polish: bin width 7 / 30 / 90, hover tooltip (bin range, count, share of
    filtered), keyboard-reachable controls
+6. cumulative bills with text vs bills with a CRS summary (the gap is the backlog)
+7. cumulative pages of text issued vs pages covered by a summary (follows the stage filter)
 
 State is one object; `render(state)` redraws everything from it.
 
@@ -74,7 +83,7 @@ Missing or malformed JSON shows one message in the page; nothing partial.
 ## Testing
 
 - `tests/test_delays_json.py` (stdlib unittest): the contract on the fixture
-  (keys, null handling, record count equals delays + awaiting).
+  (keys, null handling, record count equals the number of text versions).
 - `dashboard/metrics.test.mjs` (`node --test`): pure functions in `metrics.js`
   (binning, header metrics) without a browser.
 - Headless-chromium screenshot per rung as the maintainer's visual check.

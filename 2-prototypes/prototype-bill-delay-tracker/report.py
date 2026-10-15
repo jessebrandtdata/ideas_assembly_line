@@ -164,7 +164,7 @@ footer{{color:{MUTED};font-size:12px;margin-top:24px}}
 {card('bills with a CRS summary', st['bills_summarized'], f"{st['summaries_collected']} summary versions collected")}
 {card('introduced, awaiting summary', st['introduced_awaiting_summary'], 'no introduced-stage summary yet')}
 {card('reported by committee', st['bills_reported_by_committee'], 'bills with an rh/rs text version')}
-{card('median lag (days)', dd['median'] if dd['median'] is not None else '–', f"mean {dd['mean']}, max {dd['max']}, n={dd['n']}")}
+{card('median lag (days)', f"{dd['median']:g}" if dd['median'] is not None else '–', f"mean {dd['mean']}, max {dd['max']}, n={dd['n']}")}
 {card('pages of bill text', f"{pg['total']:,}", f"{pg['versions_with_count']} of {pg['versions_total']} versions counted")}
 </div>
 <div class="charts">

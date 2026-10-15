@@ -1,16 +1,16 @@
 {
  "as_of": "2026-10-14",
- "computed_at": "2026-10-15T03:59:35+00:00",
+ "computed_at": "2026-10-15T04:16:21+00:00",
  "congress": "119",
  "bills_with_text": 3,
- "text_versions": 5,
+ "text_versions": 6,
  "bills_summarized": 3,
  "bills_reported_by_committee": 1,
  "introduced_with_summary": 1,
  "introduced_awaiting_summary": 1,
  "pages": {
   "versions_with_count": 3,
-  "versions_total": 5,
+  "versions_total": 6,
   "total": 3036,
   "mean": 1012
  },
