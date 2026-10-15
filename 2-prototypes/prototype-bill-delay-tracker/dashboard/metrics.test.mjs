@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries } from './metrics.js';
+import { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativePages } from './metrics.js';
 
 const rec = (o) => ({ type: 'hr', number: '1', stage: 'introduced', text_date: '2025-01-10',
   summary_date: null, lag_days: null, pages: null, reported: false, title: 't', ...o });
@@ -102,4 +102,18 @@ test('cumulativeSeries counts distinct bills with text and with a summary by dat
     { date: '2025-02-01', withText: 3, summarized: 2 },
   ]);
   assert.deepEqual(cumulativeSeries([]), []);
+});
+
+test('cumulativePages sums pages issued and pages of summarized bills by date', () => {
+  const s = cumulativePages([
+    rec({ number: '1', text_date: '2025-01-03', summary_date: '2025-01-20', lag_days: 17, pages: 10 }),
+    rec({ number: '2', text_date: '2025-01-03', pages: null }),
+    rec({ number: '1', stage: null, text_date: '2025-02-01', pages: 12 }),
+  ]);
+  assert.deepEqual(s, [
+    { date: '2025-01-03', pagesIssued: 10, pagesSummarized: 0, versionsWithoutPages: 1 },
+    { date: '2025-01-20', pagesIssued: 10, pagesSummarized: 10, versionsWithoutPages: 1 },
+    { date: '2025-02-01', pagesIssued: 22, pagesSummarized: 10, versionsWithoutPages: 1 },
+  ]);
+  assert.deepEqual(cumulativePages([]), []);
 });

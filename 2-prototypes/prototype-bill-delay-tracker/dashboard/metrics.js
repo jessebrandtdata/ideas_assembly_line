@@ -85,3 +85,19 @@ export function cumulativeSeries(records) {
   const countLE = (sorted, d) => { let lo = 0, hi = sorted.length; while (lo < hi) { const mid = (lo + hi) >> 1; if (sorted[mid] <= d) lo = mid + 1; else hi = mid; } return lo; };
   return dates.map((date) => ({ date, withText: countLE(textDates, date), summarized: countLE(summaryDates, date) }));
 }
+
+/** Running page totals: pages of every text version issued, and pages of the staged versions whose summary has arrived. */
+export function cumulativePages(records) {
+  const issued = [], summarized = [], missing = [];
+  for (const r of records) {
+    if (r.pages === null) missing.push(r.text_date);
+    else {
+      issued.push([r.text_date, r.pages]);
+      if (r.stage !== null && r.summary_date !== null) summarized.push([r.summary_date, r.pages]);
+    }
+  }
+  const dates = [...new Set([...issued.map((p) => p[0]), ...summarized.map((p) => p[0]), ...missing])].sort();
+  const running = (pairs) => { const sorted = pairs.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)); let i = 0, sum = 0; return (d) => { while (i < sorted.length && sorted[i][0] <= d) sum += sorted[i++][1]; return sum; }; };
+  const pi = running(issued), ps = running(summarized), pm = running(missing.map((d) => [d, 1]));
+  return dates.map((date) => ({ date, pagesIssued: pi(date), pagesSummarized: ps(date), versionsWithoutPages: pm(date) }));
+}

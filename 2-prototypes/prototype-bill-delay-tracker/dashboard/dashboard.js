@@ -1,4 +1,4 @@
-import { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries } from './metrics.js';
+import { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativePages } from './metrics.js';
 
 const BLUE = '#104378', RED = '#b2182b', INK = '#1f2933', MUTED = '#6b7280';
 const fmt = d3.format(',');
@@ -158,8 +158,8 @@ function renderTimeseries(records, state) {
   }
 }
 
-function renderCumulative(target, series, keys, labels, title, yLabel) {
-  const W = 920, H = 300, left = 76, right = 16, top = 36, bottom = 56;
+function renderCumulative(target, series, keys, labels, title, yLabel, note = '') {
+  const W = 920, H = 300, left = 76, right = 16, top = note ? 52 : 36, bottom = 56;
   const fig = d3.select(target).html('');
   if (series.length === 0) return;
   const parse = d3.utcParse('%Y-%m-%d');
@@ -167,6 +167,7 @@ function renderCumulative(target, series, keys, labels, title, yLabel) {
   const y = d3.scaleLinear().domain([0, d3.max(series, (s) => s[keys[0]])]).nice().range([H - bottom, top]);
   const svg = fig.append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', title);
   svg.append('text').attr('x', left).attr('y', 18).attr('font-size', 14).attr('font-weight', 600).attr('fill', INK).text(title);
+  if (note) svg.append('text').attr('x', left).attr('y', 36).attr('font-size', 12).attr('fill', MUTED).text(note);
   svg.append('g').attr('transform', `translate(${left},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(fmt)).call((g) => g.select('.domain').remove());
   svg.append('g').attr('transform', `translate(0,${H - bottom})`).call(d3.axisBottom(x).ticks(d3.utcMonth.every(2)).tickFormat(d3.utcFormat('%b %Y'))).call((g) => g.select('.domain').remove());
   svg.append('text').attr('transform', `translate(14,${(top + H - bottom) / 2}) rotate(-90)`).attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK).text(yLabel);
@@ -187,6 +188,12 @@ export function render(state) {
   const unranged = filterRecords(state.records, { stage: state.stage, type: state.type, range: null });
   renderCumulative('#cumulative', cumulativeSeries(unranged), ['withText', 'summarized'], ['with text', 'summarized'],
     'Congress to date: bills with text issued, and bills with a CRS summary. The gap is the backlog.', 'bills');
+  const allEditions = filterRecords(state.records, { stage: 'all', type: state.type, range: null });
+  const pagesSeries = cumulativePages(allEditions);
+  const uncounted = pagesSeries.length ? pagesSeries.at(-1).versionsWithoutPages : 0;
+  renderCumulative('#cumulative-pages', pagesSeries, ['pagesIssued', 'pagesSummarized'], ['pages issued', 'pages summarized'],
+    'Congress to date: pages of bill text issued, and pages covered by a CRS summary.', 'pages',
+    [uncounted ? `${fmt(uncounted)} versions not yet page-counted.` : '', state.stage !== 'all' ? `Summaries: ${state.stage} stage.` : ''].filter(Boolean).join(' '));
 }
 
 async function main() {
