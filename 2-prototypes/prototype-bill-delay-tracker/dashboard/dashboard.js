@@ -224,7 +224,7 @@ function download(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
-/** Standalone copy of a figure's svg: computed styles inlined, xmlns, explicit size, white background. The title text lives inside the svg already. */
+/** Standalone copy of a figure's svg: computed styles inlined, xmlns, explicit size, white background, a white band above the title. */
 function standaloneSvg(svg) {
   const vb = svg.viewBox.baseVal;
   const clone = svg.cloneNode(true);
@@ -241,13 +241,24 @@ function standaloneSvg(svg) {
   if (srcTitle && dstTitle) { dstTitle.setAttribute('textLength', srcTitle.getComputedTextLength()); dstTitle.setAttribute('lengthAdjust', 'spacingAndGlyphs'); }
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
   clone.setAttribute('width', vb.width);
-  clone.setAttribute('height', vb.height);
+  // breathing room above the title: every title sits in the svg with its baseline 13-18 px down, so push the content down until ~20 px of white is above its cap height
+  const TITLE_CAP = 10, TITLE_TOP_WHITE = 20;
+  const pad = Math.max(0, Math.round(TITLE_TOP_WHITE - (+(dstTitle && dstTitle.getAttribute('y')) - TITLE_CAP)));
+  const H = vb.height + pad;
+  clone.setAttribute('height', H);
+  clone.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.width} ${H}`);
+  if (pad) {
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('transform', `translate(0,${pad})`);
+    while (clone.firstChild) g.appendChild(clone.firstChild);
+    clone.appendChild(g);
+  }
   clone.removeAttribute('style');
   clone.style.fontFamily = FONT_STACK;
   const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-  for (const [k, v] of [['x', vb.x], ['y', vb.y], ['width', vb.width], ['height', vb.height], ['fill', '#ffffff']]) bg.setAttribute(k, v);
+  for (const [k, v] of [['x', vb.x], ['y', vb.y], ['width', vb.width], ['height', H], ['fill', '#ffffff']]) bg.setAttribute(k, v);
   clone.insertBefore(bg, clone.firstChild);
-  return { text: new XMLSerializer().serializeToString(clone), width: vb.width, height: vb.height };
+  return { text: new XMLSerializer().serializeToString(clone), width: vb.width, height: H };
 }
 
 const figureSvg = (figure) => document.querySelector(`#${figure} svg`);
