@@ -1,10 +1,13 @@
-import { headerMetrics, binLags, histogramMax, filterRecords, monthlySeries, cumulativeSeries, cumulativePages } from './metrics.js';
+import { headerMetrics, binLags, histogramMax, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativePages, longestLags, oldestWaiting, billLabel, billUrl, ordinal } from './metrics.js';
 
 const BLUE = '#104378', RED = '#b2182b', INK = '#1f2933', MUTED = '#6b7280';
 let fmt; // assigned in main() once d3 is known to be loaded
 const day = (v) => (v === null ? '–' : `${Math.round(v)}`);
 
-const state = { records: [], summaryBefore: {}, stage: 'introduced', type: 'all', range: { from: null, to: null }, includeWaiting: true, width: 30 };
+let congress = ''; // envelope's congress number, set in main()
+let asOf = ''; // envelope's as_of date (ISO)
+
+const state = { records: [], summaryBefore: {}, stage: 'all', type: 'all', range: { from: null, to: null }, includeWaiting: true, width: 30 };
 
 function card(label, value, note = '') {
   return `<div class="card"><div class="value">${value}</div><div class="label">${label}</div><div class="note">${note}</div></div>`;
@@ -37,15 +40,15 @@ function renderHistogram(records, state) {
   const W = 920, H = 320, left = 56, right = 16, top = 36, bottom = 56;
   const fig = d3.select('#hist-chart').html('');
   if (bins.length === 0) {
-    fig.append('p').attr('class', 'note').text('No summarized bills in this view.');
+    fig.append('p').attr('class', 'note').text(`No summarized ${stage === 'all' ? 'text versions' : 'bills'} in this view.`);
     return;
   }
   const svg = fig.append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
     .attr('aria-label', 'Histogram of lag in days');
   svg.append('text').attr('x', left).attr('y', 13).attr('font-size', 14).attr('font-weight', 600).attr('fill', INK)
-    .text(`Days from text to CRS summary, ${width}-day bins (n=${fmt(m.n)} ${stage === 'all' ? 'summaries' : 'summarized'}, ${fmt(m.waiting)} still waiting)`);
+    .text(`Days from text to CRS summary, ${width}-day bins (n=${fmt(m.n)} ${stage === 'all' ? 'text versions with a summary' : 'summarized'}, ${fmt(m.waiting)} ${stage === 'all' ? 'bills ' : ''}still waiting)`);
   const x = d3.scaleBand().domain([...bins.map((_, i) => i), ...(includeWaiting ? ['waiting'] : [])]).range([left, W - right]).padding(0.12);
-  const unit = stage === 'all' ? 'summaries' : 'bills';
+  const unit = stage === 'all' ? 'text versions' : 'bills';
   const y = d3.scaleLinear().domain([0, histogramMax(bins, includeWaiting ? m.waiting : 0)]).nice().range([H - bottom, top]);
   svg.append('g').attr('transform', `translate(${left},0)`).call(d3.axisLeft(y).ticks(6).tickFormat(fmt))
     .call((g) => g.select('.domain').remove()).selectAll('text').attr('fill', MUTED);
@@ -66,7 +69,7 @@ function renderHistogram(records, state) {
     .on('mousemove', (event, b) => {
       const share = m.n ? (b.count / m.n) : 0;
       d3.select('#tooltip').style('display', 'block').style('left', `${event.pageX + 12}px`).style('top', `${event.pageY - 10}px`)
-        .text(`${binLabel(b)} days: ${fmt(b.count)} ${unit} (${d3.format('.1%')(share)} of ${stage === 'all' ? 'summaries' : 'summarized'})`);
+        .text(`${binLabel(b)} days: ${fmt(b.count)} ${unit} (${d3.format('.1%')(share)} of ${stage === 'all' ? 'summarized text versions' : 'summarized'})`);
     })
     .on('mouseleave', () => d3.select('#tooltip').style('display', 'none'))
     .append('title').text((b) => `${binLabel(b)} days: ${fmt(b.count)} ${unit}`);
@@ -97,7 +100,7 @@ function renderHistogram(records, state) {
   }
 }
 
-const STAGES = [['introduced', 'Introduced'], ['reported', 'Reported by committee'], ['passed', 'Passed a chamber'], ['enrolled', 'Enrolled'], ['all', 'All stages']];
+const STAGES = [['all', 'All stages'], ['introduced', 'Introduced'], ['reported', 'Reported by committee'], ['passed', 'Passed a chamber'], ['enrolled', 'Enrolled']];
 const TYPES = [['all', 'All bill types'], ['hr', 'H.R.'], ['s', 'S.'], ['hjres', 'H.J.Res.'], ['sjres', 'S.J.Res.']];
 
 function select(id, label, options, value) {
@@ -108,21 +111,21 @@ function select(id, label, options, value) {
 function renderControls(state) {
   const el = document.getElementById('controls');
   if (el.children.length) return; // built once; inputs keep their own value
-  const months = state.records.map((r) => r.text_date.slice(0, 7)).sort();
-  const lo = months[0] ?? '', hi = months.at(-1) ?? '';
+  const { min, max } = dateBounds(state.records);
+  const dateInput = (id, label) => `<label>${label}<input type="date" id="${id}" min="${min}" max="${max}"></label>`;
   el.innerHTML = select('stage', 'Stage', STAGES, state.stage) + select('type', 'Bill type', TYPES, state.type)
-    + `<label>Introduced from<input type="month" id="month-from" min="${lo}" max="${hi}"></label>`
-    + `<label>to<input type="month" id="month-to" min="${lo}" max="${hi}"></label>`
-    + '<button id="clear-months" type="button">Clear months</button>'
-    + `<label class="check"><input type="checkbox" id="include-waiting"${state.includeWaiting ? ' checked' : ''}>Include bills still waiting for a summary</label>`;
-  const from = el.querySelector('#month-from'), to = el.querySelector('#month-to');
+    + dateInput('date-from', 'Introduced from') + dateInput('date-to', 'to')
+    + '<button id="clear-dates" type="button">Clear date filters</button>';
+  const from = el.querySelector('#date-from'), to = el.querySelector('#date-to');
   el.querySelector('#stage').addEventListener('change', (e) => { state.stage = e.target.value; render(state); });
   el.querySelector('#type').addEventListener('change', (e) => { state.type = e.target.value; render(state); });
-  const months2 = () => { state.range = { from: from.value || null, to: to.value || null }; render(state); };
-  from.addEventListener('input', months2);
-  to.addEventListener('input', months2);
-  el.querySelector('#clear-months').addEventListener('click', () => { from.value = ''; to.value = ''; months2(); });
-  el.querySelector('#include-waiting').addEventListener('change', (e) => { state.includeWaiting = e.target.checked; renderHistogram(currentRecords(state), state); });
+  const setRange = () => { state.range = { from: from.value || null, to: to.value || null }; render(state); };
+  from.addEventListener('change', setRange);
+  to.addEventListener('change', setRange);
+  el.querySelector('#clear-dates').addEventListener('click', () => { from.value = ''; to.value = ''; setRange(); });
+  const waiting = document.getElementById('include-waiting');
+  waiting.checked = state.includeWaiting;
+  waiting.addEventListener('change', (e) => { state.includeWaiting = e.target.checked; renderHistogram(currentRecords(state), state); });
   const slider = document.getElementById('bin-width'), label = document.getElementById('bin-width-label');
   slider.value = String(state.width);
   slider.addEventListener('input', () => {
@@ -134,31 +137,31 @@ function renderControls(state) {
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const monthLabel = (m) => MONTHS[+m.slice(5, 7) - 1];
-const monthName = (m) => `${monthLabel(m)} ${m.slice(0, 4)}`;
-/** The month range if it is a usable one (not inverted), else null. */
+const dayName = (d) => `${+d.slice(8, 10)} ${monthLabel(d)} ${d.slice(0, 4)}`;
+/** The date range if it is a usable one (not inverted), else null. */
 const activeRange = (r) => ((r.from || r.to) && !(r.from && r.to && r.from > r.to) ? r : null);
 const rangeLabel = (r) => {
   const a = activeRange(r);
   if (!a) return 'Congress to date';
-  return a.from && a.to ? `${monthName(a.from)} – ${monthName(a.to)}` : a.from ? `from ${monthName(a.from)}` : `to ${monthName(a.to)}`;
+  return a.from && a.to ? `${dayName(a.from)} – ${dayName(a.to)}` : a.from ? `from ${dayName(a.from)}` : `to ${dayName(a.to)}`;
 };
 const currentRecords = (state) => filterRecords(state.records, state);
 
 function renderTimeseries(records, state) {
   const series = monthlySeries(records);
-  const W = 920, left = 76, right = 16, topY = 52, topH = 150, botY = 290, botH = 170, H = botY + botH + 60;
+  const W = 920, left = 76, right = 16, topY = 40, topH = 170, H = topY + topH + 60;
   const fig = d3.select('#timeseries').html('');
   if (series.length === 0) return;
-  const svg = fig.append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Lag by month of introduction');
+  const svg = fig.append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Share of bills with a CRS summary, by month the text was issued');
   svg.append('text').attr('x', left).attr('y', 18).attr('font-size', 14).attr('font-weight', 600).attr('fill', INK)
-    .text('By month the text was issued: share with a CRS summary, and lag among those summarized.');
+    .text('By month the text was issued: share with a CRS summary.');
   const x = d3.scaleBand().domain(series.map((s) => s.month)).range([left, W - right]).padding(0.18);
   const sel = activeRange(state.range);
-  if (sel) { // shaded band behind everything: the months the page is filtered to
-    const inside = series.filter((s) => (!sel.from || s.month >= sel.from) && (!sel.to || s.month <= sel.to));
+  if (sel) { // shaded band behind everything: every month band the selected days touch (a partial month is shaded whole)
+    const inside = series.filter((s) => (!sel.from || s.month >= sel.from.slice(0, 7)) && (!sel.to || s.month <= sel.to.slice(0, 7)));
     if (inside.length) {
       const x0 = x(inside[0].month) - x.step() * x.paddingInner() / 2, x1 = x(inside.at(-1).month) + x.bandwidth() + x.step() * x.paddingInner() / 2;
-      svg.append('rect').attr('id', 'month-band').attr('x', x0).attr('y', topY).attr('width', x1 - x0).attr('height', botY + botH - topY)
+      svg.append('rect').attr('id', 'month-band').attr('x', x0).attr('y', topY).attr('width', x1 - x0).attr('height', topH + 34)
         .attr('fill', MUTED).attr('fill-opacity', 0.15);
     }
   }
@@ -182,16 +185,6 @@ function renderTimeseries(records, state) {
     .attr('y', (s) => yShare(s.summarized / (s.summarized + s.waiting || 1))).attr('height', (s) => topY + topH - yShare(s.summarized / (s.summarized + s.waiting || 1)));
   bars.append('title').text((s) => `${s.month}: ${fmt(s.summarized)} summarized, ${fmt(s.waiting)} waiting`);
   monthAxis(topY + topH + 14);
-  // bottom: lag lines
-  const yMax = d3.max(series, (s) => s.p90Lag ?? 0) || 1;
-  const yLag = d3.scaleLinear().domain([0, yMax]).nice().range([botY + botH, botY]);
-  svg.append('g').attr('transform', `translate(${left},0)`).call(d3.axisLeft(yLag).ticks(5)).call((g) => g.select('.domain').remove());
-  svg.append('text').attr('transform', `translate(14,${botY + botH / 2}) rotate(-90)`).attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK).text('Days, text to CRS summary');
-  const line = (key) => d3.line().defined((s) => s[key] !== null).x((s) => x(s.month) + x.bandwidth() / 2).y((s) => yLag(s[key]));
-  svg.append('path').datum(series).attr('d', line('p90Lag')).attr('fill', 'none').attr('stroke', MUTED).attr('stroke-width', 2).attr('stroke-dasharray', '4 3');
-  svg.append('path').datum(series).attr('d', line('medianLag')).attr('fill', 'none').attr('stroke', BLUE).attr('stroke-width', 2);
-  svg.append('text').attr('x', left).attr('y', botY - 6).attr('font-size', 11).attr('fill', INK).text('— median   ┄ 90th percentile   (lag among the bills summarized so far; recent months are right-censored)');
-  monthAxis(botY + botH + 14);
 }
 
 function renderCumulative(target, series, keys, labels, title, yLabel, note = '') {
@@ -217,12 +210,35 @@ function renderCumulative(target, series, keys, labels, title, yLabel, note = ''
   svg.append('text').attr('x', W - right).attr('y', y(last[keys[1]]) - 6).attr('font-size', 11).attr('text-anchor', 'end').attr('fill', BLUE).text(`${fmt(last[keys[1]])} ${labels[1]}`);
 }
 
+const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// cols: [header, cell(row) -> html, class]
+function renderTable(selector, rows, cols) {
+  const host = document.querySelector(`${selector} .table-wrap`);
+  if (rows.length === 0) { host.innerHTML = '<p class="note">No bills in this view.</p>'; return; }
+  host.innerHTML = `<table><thead><tr>${cols.map(([h, , c]) => `<th class="${c}">${h}</th>`).join('')}</tr></thead><tbody>`
+    + rows.map((r) => `<tr>${cols.map(([, f, c]) => `<td class="${c}">${f(r)}</td>`).join('')}</tr>`).join('') + '</tbody></table>';
+}
+
+const billCell = (r) => `<a href="${esc(billUrl(congress, r.type, r.number))}" target="_blank" rel="noopener">${esc(billLabel(r.type, r.number))}</a>`;
+
+function renderLists(records) {
+  const bill = ['Bill', billCell, 'nowrap'], stage = ['Stage', (r) => esc(r.stage), 'nowrap'];
+  const textDate = ['Text date', (r) => esc(r.text_date), 'nowrap'], pages = ['Pages', (r) => (r.pages == null ? '–' : fmt(r.pages)), 'num'];
+  const title = ['Title', (r) => esc(r.title), 'title'];
+  renderTable('#longest-lags', longestLags(records), [bill, stage, textDate,
+    ['Summary date', (r) => esc(r.summary_date), 'nowrap'], ['Days', (r) => fmt(r.lag_days), 'num'], pages, title]);
+  renderTable('#oldest-waiting', oldestWaiting(records, asOf), [bill, stage, textDate,
+    ['Days waiting', (r) => fmt(r.days_waiting), 'num'], pages, title]);
+}
+
 export function render(state) {
   renderControls(state);
   const unranged = filterRecords(state.records, { stage: state.stage, type: state.type, range: null });
   const records = filterRecords(state.records, state);
   renderHeader(records, filterRecords(state.records, { stage: 'all', type: state.type, range: state.range }), state.stage);
   renderPreText();
+  renderLists(records);
   renderHistogram(records, state);
   renderTimeseries(unranged, state);
   const scope = rangeLabel(state.range);
@@ -233,7 +249,7 @@ export function render(state) {
   const uncounted = pagesSeries.length ? pagesSeries.at(-1).versionsWithoutPages : 0;
   renderCumulative('#cumulative-pages', pagesSeries, ['pagesIssued', 'pagesSummarized'], ['pages issued', 'pages summarized'],
     `${scope}: pages of bill text issued, and pages covered by a CRS summary.`, 'pages',
-    [uncounted ? `${fmt(uncounted)} versions not yet page-counted.` : '', state.stage !== 'all' ? `Summaries: ${state.stage} stage.` : ''].filter(Boolean).join(' '));
+    [uncounted ? `${fmt(uncounted)} versions not yet page-counted.` : '', `Summaries: ${state.stage === 'all' ? 'all stages' : `${state.stage} stage`}.`].filter(Boolean).join(' '));
 }
 
 async function main() {
@@ -245,13 +261,15 @@ async function main() {
     const doc = await res.json();
     if (!Array.isArray(doc.records)) throw new Error('delays.json has no records array');
     state.records = doc.records;
+    congress = doc.congress;
+    asOf = doc.as_of;
     state.summaryBefore = doc.summary_before_text || {};
     document.getElementById('subtitle').textContent =
-      `Lag between a bill text version on GovInfo and its CRS summary on Congress.gov, ${doc.congress}th Congress, as of ${doc.as_of}.`;
+      `Lag between a bill text version on GovInfo and its CRS summary on Congress.gov, ${ordinal(doc.congress)} Congress, as of ${doc.as_of}.`;
     render(state);
   } catch (err) {
     document.getElementById('controls').innerHTML = '';
-    document.querySelectorAll('figure').forEach((f) => { f.innerHTML = ''; });
+    document.querySelectorAll('figure, .table-wrap').forEach((f) => { f.innerHTML = ''; });
     document.getElementById('pre-text').textContent = '';
     const cards = document.getElementById('cards');
     cards.innerHTML = '';

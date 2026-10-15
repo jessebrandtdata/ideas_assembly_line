@@ -52,34 +52,46 @@ Fetches `../data/delays.json` relative to the page. Opens from
 
 Header row, recomputed from the filtered records: pages processed (with "n of m
 versions counted"), bills summarized, bills reported by committee (distinct bills with a reported-stage record under the type
-filter and month range, ignoring the stage select), mean /
+filter and date range, ignoring the stage select), mean /
 median / max lag in days.
+
+Foot of the page, after the cumulative pages chart and before the caveat: two
+top-10 tables, "Longest lags" (filtered records with a summary, by `lag_days`
+descending; Bill, Stage, Text date, Summary date, Days, Pages, Title) and
+"Oldest bills still waiting" (filtered records with no summary, by days from
+`text_date` to the envelope's `as_of`; Bill, Stage, Text date, Days waiting,
+Pages, Title). Both follow stage, type and date range, exclude stage-less
+records, break ties by bill number ascending, and show "No bills in this view."
+when empty. Bill cells link to
+`congress.gov/bill/<congress ordinal>-congress/<type slug>/<number>` in a new
+tab. Pure parts (`longestLags`, `oldestWaiting`, `billLabel`, `billUrl`) live in
+`metrics.js`.
 
 ## Histogram
 
-Lag in days for filtered records that have a summary. Default filter: stage
-introduced, all bill types. Fixed-width bins from 0 to the largest lag in view (30 days
+Lag in days for filtered records that have a summary. Default filter: all
+stages, all bill types (with all stages the bars count staged text versions with a summary, one per bill per stage; with one stage they count bills). Fixed-width bins from 0 to the largest lag in view (30 days
 by default, no open-ended last bin). Vertical rules for median and mean. Count label on each
 bar when the bar is wide enough; x labels are thinned to about 48 px apart. One red bar at the
 right edge, "still waiting", on the same linear scale as the bins, so the censoring is visible
-and the chart is to scale. The page-wide checkbox "Include bills still waiting for a summary"
-(on by default) draws that bar; off, the bar goes and the scale falls to the tallest bin. The
-title names both counts either way. A slider under the chart (7 to 90 days) sets the bin width
-and re-renders the histogram only.
+and the chart is to scale. The checkbox "Include bills still waiting for a summary", in the
+histogram's control strip beside the bin-width slider (it applies to the histogram only; on by default), draws that bar; off, the bar goes and the scale falls to the tallest bin. The
+title names both counts either way. The strip under the chart holds the slider (7 to 90 days), which sets the bin width, then the checkbox; both re-render the histogram only.
 
 ## Interaction ladder
 
 1. data contract (`delays.json`, test)
 2. histogram + header row (static page; minimal hand-over)
-3. filters: stage and bill type `<select>`s; header and histogram re-render
-4. timeseries by month introduced under the histogram; the month range is set in
-   the top controls row (Introduced from / to `<input type="month">`, bounded by the
-   data's first and last month, blank = open, "Clear months" resets, from after to =
-   no range) and filters every card and chart; the chart shades the selected months
+3. filters: stage (default "All stages", listed first) and bill type `<select>`s; header and histogram re-render
+4. stacked share bars (summarized vs waiting) by month the text was issued, under the histogram; there is deliberately no median / 90th-percentile lag-over-time panel, since recent months are right-censored and the lines would mislead; the date range is set in
+   the top controls row (Introduced from / to, two `<input type="date">`s whose `min`/`max` are the earliest and
+   latest text date in the data, derived from the records; empty = open side; day precision, inclusive of both
+   days, on the text version's issue date; "Clear date filters" resets both; from after to = no range).
+   Tab order: stage, type, from, to, clear, then the histogram's slider and checkbox) and filters every card and chart; the chart shades every month band the range touches (a partial month is shaded whole)
 5. polish: bin width slider, hover tooltip (bin range, count, share of
    filtered), keyboard-reachable controls
 6. cumulative bills with text vs bills with a CRS summary (the gap is the backlog)
-   Charts 6 and 7 use the same type filter and month range as the cards; titles read "Congress to date", or name the range ("Jul 2025 – Feb 2026", "from Jul 2025", "to Feb 2026").
+   Charts 6 and 7 use the same type filter and date range as the cards; titles read "Congress to date", or name the range ("3 Mar 2025 – 30 Jun 2025", "from 3 Mar 2025", "to 30 Jun 2025").
 7. cumulative pages of text issued vs pages covered by a summary (follows the stage filter)
 
 State is one object; `render(state)` redraws everything from it.

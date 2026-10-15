@@ -46,8 +46,8 @@ export function binLags(records, width) {
   return bins;
 }
 
-/** Records in view. range is null or {from, to} as 'YYYY-MM' or null (open side); inclusive on the introduction month.
- *  A from later than to is treated as no range. */
+/** Records in view. range is null or {from, to} as ISO 'YYYY-MM-DD' or null (open side); inclusive of both days, compared on text_date.
+ *  ISO dates sort as strings, so no Date objects. A from later than to is treated as no range. */
 export function filterRecords(records, { stage = 'all', type = 'all', range = null }) {
   const from = range?.from || null, to = range?.to || null;
   const ranged = !(from && to && from > to) && (from || to);
@@ -55,30 +55,31 @@ export function filterRecords(records, { stage = 'all', type = 'all', range = nu
     if (stage !== 'all' && r.stage !== stage) return false;
     if (type !== 'all' && r.type !== type) return false;
     if (!ranged) return true;
-    const month = r.text_date.slice(0, 7);
-    return (!from || month >= from) && (!to || month <= to);
+    return (!from || r.text_date >= from) && (!to || r.text_date <= to);
   });
 }
 
-/** Per month of text_date: how many got a summary, how many wait, and lag quantiles among the summarized. */
+/** Earliest and latest text_date in the records ({min, max}, ISO dates; both null when empty). Bounds the date inputs. */
+export function dateBounds(records) {
+  let min = null, max = null;
+  for (const r of records) {
+    if (min === null || r.text_date < min) min = r.text_date;
+    if (max === null || r.text_date > max) max = r.text_date;
+  }
+  return { min, max };
+}
+
+/** Per month of text_date: how many got a summary and how many wait. */
 export function monthlySeries(records) {
   const byMonth = new Map();
   for (const r of records) {
     if (r.stage === null) continue; // later editions never get a summary of their own
     const month = r.text_date.slice(0, 7);
-    if (!byMonth.has(month)) byMonth.set(month, { lags: [], waiting: 0 });
+    if (!byMonth.has(month)) byMonth.set(month, { summarized: 0, waiting: 0 });
     const m = byMonth.get(month);
-    if (r.lag_days === null) m.waiting += 1; else m.lags.push(r.lag_days);
+    if (r.lag_days === null) m.waiting += 1; else m.summarized += 1;
   }
-  return [...byMonth.keys()].sort().map((month) => {
-    const { lags, waiting } = byMonth.get(month);
-    const sorted = lags.sort((a, b) => a - b);
-    return {
-      month, summarized: sorted.length, waiting,
-      medianLag: median(sorted),
-      p90Lag: sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.9))] : null,
-    };
-  });
+  return [...byMonth.keys()].sort().map((month) => ({ month, ...byMonth.get(month) }));
 }
 
 /** Running counts of distinct bills with any text and with any summary, by date. */
@@ -110,4 +111,45 @@ export function cumulativePages(records, stage = 'all') {
   const running = (pairs) => { const sorted = pairs.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)); let i = 0, sum = 0; return (d) => { while (i < sorted.length && sorted[i][0] <= d) sum += sorted[i++][1]; return sum; }; };
   const pi = running(issued), ps = running(summarized), pm = running(missing.map((d) => [d, 1]));
   return dates.map((date) => ({ date, pagesIssued: pi(date), pagesSummarized: ps(date), versionsWithoutPages: pm(date) }));
+}
+
+const BILL_LABELS = { hr: 'H.R.', s: 'S.', hjres: 'H.J.Res.', sjres: 'S.J.Res.' };
+const BILL_SLUGS = { hr: 'house-bill', s: 'senate-bill', hjres: 'house-joint-resolution', sjres: 'senate-joint-resolution' };
+
+/** "H.R. 360": the conventional abbreviation for the bill type, a space, the number. */
+export function billLabel(type, number) {
+  return `${BILL_LABELS[type] ?? String(type).toUpperCase()} ${number}`;
+}
+
+/** English ordinal: 119 -> "119th", 101 -> "101st", 112 -> "112th". */
+export function ordinal(n) {
+  const k = Number(n), mod100 = k % 100, mod10 = k % 10;
+  const suffix = mod100 >= 11 && mod100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[mod10] ?? 'th');
+  return `${k}${suffix}`;
+}
+
+/** congress.gov page for a bill; congress is the envelope's number (119 or "119"). */
+export function billUrl(congress, type, number) {
+  return `https://www.congress.gov/bill/${ordinal(congress)}-congress/${BILL_SLUGS[type]}/${number}`;
+}
+
+const byNumber = (a, b) => Number(a.number) - Number(b.number) || (a.type < b.type ? -1 : a.type > b.type ? 1 : 0);
+
+/** Top n records by lag_days descending among those with a summary; stage-less records excluded; ties by bill number ascending. */
+export function longestLags(records, n = 10) {
+  return records
+    .filter((r) => r.stage != null && r.summary_date != null && r.lag_days != null)
+    .sort((a, b) => b.lag_days - a.lag_days || byNumber(a, b))
+    .slice(0, n);
+}
+
+const utcDays = (iso) => { const [y, m, d] = iso.split('-').map(Number); return Date.UTC(y, m - 1, d) / 86400000; };
+
+/** Top n records with no summary by whole days from text_date to asOf (ISO), descending, as copies carrying days_waiting; ties by bill number ascending. */
+export function oldestWaiting(records, asOf, n = 10) {
+  return records
+    .filter((r) => r.stage != null && r.summary_date == null)
+    .map((r) => ({ ...r, days_waiting: utcDays(asOf) - utcDays(r.text_date) }))
+    .sort((a, b) => b.days_waiting - a.days_waiting || byNumber(a, b))
+    .slice(0, n);
 }
