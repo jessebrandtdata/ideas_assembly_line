@@ -1,0 +1,136 @@
+{
+ "as_of": "2026-10-14",
+ "computed_at": "2026-10-15T00:01:10+00:00",
+ "congress": "119",
+ "bills_with_text": 3,
+ "text_versions": 4,
+ "bills_summarized": 2,
+ "bills_reported_by_committee": 1,
+ "introduced_with_summary": 1,
+ "introduced_awaiting_summary": 1,
+ "pages": {
+  "versions_with_count": 2,
+  "versions_total": 4,
+  "total": 2136,
+  "mean": 1068
+ },
+ "delay_days": {
+  "n": 3,
+  "mean": 51.3,
+  "median": 25,
+  "max": 125
+ },
+ "by_stage": {
+  "introduced": {
+   "n": 1,
+   "mean": 4,
+   "median": 4,
+   "max": 4,
+   "min": 4
+  },
+  "reported": {
+   "n": 1,
+   "mean": 125,
+   "median": 125,
+   "max": 125,
+   "min": 125
+  },
+  "passed": {
+   "n": 1,
+   "mean": 25,
+   "median": 25,
+   "max": 25,
+   "min": 25
+  }
+ },
+ "introduced_histogram": [
+  {
+   "from": 0,
+   "to": 7,
+   "count": 1
+  },
+  {
+   "from": 7,
+   "to": 14,
+   "count": 0
+  },
+  {
+   "from": 14,
+   "to": 30,
+   "count": 0
+  },
+  {
+   "from": 30,
+   "to": 60,
+   "count": 0
+  },
+  {
+   "from": 60,
+   "to": 90,
+   "count": 0
+  },
+  {
+   "from": 90,
+   "to": 180,
+   "count": 0
+  },
+  {
+   "from": 180,
+   "to": 365,
+   "count": 0
+  },
+  {
+   "from": 365,
+   "to": null,
+   "count": 0
+  }
+ ],
+ "awaiting_histogram": [
+  {
+   "from": 0,
+   "to": 7,
+   "count": 1
+  },
+  {
+   "from": 7,
+   "to": 14,
+   "count": 0
+  },
+  {
+   "from": 14,
+   "to": 30,
+   "count": 0
+  },
+  {
+   "from": 30,
+   "to": 60,
+   "count": 0
+  },
+  {
+   "from": 60,
+   "to": 90,
+   "count": 0
+  },
+  {
+   "from": 90,
+   "to": 180,
+   "count": 0
+  },
+  {
+   "from": 180,
+   "to": 365,
+   "count": 0
+  },
+  {
+   "from": 365,
+   "to": null,
+   "count": 0
+  }
+ ],
+ "summaries_collected": 3,
+ "caveats": [
+  "delay = summary last-update date minus the date printed on the text version; the API has no first-published date for summaries, so revised summaries overstate the lag",
+  "'awaiting' means no introduced-stage summary appears in the summaries collected so far; a partial summaries sweep inflates it",
+  "page counts come from GovInfo package summaries, one call per version, and may cover only a sample"
+ ]
+}
