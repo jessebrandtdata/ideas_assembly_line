@@ -1,4 +1,4 @@
-import { headerMetrics, binLags, filterRecords } from './metrics.js';
+import { headerMetrics, binLags, filterRecords, monthlySeries } from './metrics.js';
 
 const BLUE = '#104378', RED = '#b2182b', INK = '#1f2933', MUTED = '#6b7280';
 const fmt = d3.format(',');
@@ -74,9 +74,71 @@ function select(id, label, options, value) {
 function renderControls(state) {
   const el = document.getElementById('controls');
   if (el.children.length) return; // built once; selects keep their own value
-  el.innerHTML = select('stage', 'Stage', STAGES, state.stage) + select('type', 'Bill type', TYPES, state.type);
+  el.innerHTML = select('stage', 'Stage', STAGES, state.stage) + select('type', 'Bill type', TYPES, state.type)
+    + '<button id="clear" type="button">Clear month selection</button>';
   el.querySelector('#stage').addEventListener('change', (e) => { state.stage = e.target.value; render(state); });
   el.querySelector('#type').addEventListener('change', (e) => { state.type = e.target.value; render(state); });
+  el.querySelector('#clear').addEventListener('click', () => { state.range = null; render(state); });
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const monthLabel = (m) => MONTHS[+m.slice(5, 7) - 1];
+const lastDay = (m) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10); };
+
+function renderTimeseries(records, state) {
+  const series = monthlySeries(records);
+  const W = 920, left = 76, right = 16, topY = 52, topH = 150, botY = 290, botH = 170, H = botY + botH + 60;
+  const fig = d3.select('#timeseries').html('');
+  if (series.length === 0) return;
+  const svg = fig.append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Lag by month of introduction');
+  svg.append('text').attr('x', left).attr('y', 18).attr('font-size', 14).attr('font-weight', 600).attr('fill', INK)
+    .text('By month the text was issued: share with a CRS summary, and lag among those summarized. Drag to select months.');
+  const x = d3.scaleBand().domain(series.map((s) => s.month)).range([left, W - right]).padding(0.18);
+  const monthAxis = (y) => {
+    const g = svg.append('g');
+    for (const s of series) {
+      const cx = x(s.month) + x.bandwidth() / 2;
+      g.append('text').attr('x', cx).attr('y', y).attr('font-size', 10).attr('text-anchor', 'middle').attr('fill', MUTED).text(monthLabel(s.month));
+      if (s.month.endsWith('-01') || s === series[0]) g.append('text').attr('x', cx).attr('y', y + 12).attr('font-size', 10).attr('font-weight', 600).attr('text-anchor', 'middle').attr('fill', INK).text(s.month.slice(0, 4));
+    }
+    g.append('text').attr('x', (left + W - right) / 2).attr('y', y + 28).attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK).text('Month the text version was issued');
+  };
+  // top: share
+  const yShare = d3.scaleLinear().domain([0, 1]).range([topY + topH, topY]);
+  svg.append('g').attr('transform', `translate(${left},0)`).call(d3.axisLeft(yShare).ticks(4).tickFormat(d3.format('.0%'))).call((g) => g.select('.domain').remove());
+  svg.append('text').attr('transform', `translate(14,${topY + topH / 2}) rotate(-90)`).attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK).text('Share of that month\'s bills');
+  const bars = svg.append('g').selectAll('g').data(series).join('g');
+  bars.append('rect').attr('x', (s) => x(s.month)).attr('width', x.bandwidth()).attr('fill', RED)
+    .attr('y', topY).attr('height', (s) => yShare(1 - s.waiting / (s.summarized + s.waiting || 1)) - topY);
+  bars.append('rect').attr('x', (s) => x(s.month)).attr('width', x.bandwidth()).attr('fill', BLUE)
+    .attr('y', (s) => yShare(s.summarized / (s.summarized + s.waiting || 1))).attr('height', (s) => topY + topH - yShare(s.summarized / (s.summarized + s.waiting || 1)));
+  bars.append('title').text((s) => `${s.month}: ${fmt(s.summarized)} summarized, ${fmt(s.waiting)} waiting`);
+  monthAxis(topY + topH + 14);
+  // bottom: lag lines
+  const yMax = d3.max(series, (s) => s.p90Lag ?? 0) || 1;
+  const yLag = d3.scaleLinear().domain([0, yMax]).nice().range([botY + botH, botY]);
+  svg.append('g').attr('transform', `translate(${left},0)`).call(d3.axisLeft(yLag).ticks(5)).call((g) => g.select('.domain').remove());
+  svg.append('text').attr('transform', `translate(14,${botY + botH / 2}) rotate(-90)`).attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK).text('Days, text to CRS summary');
+  const line = (key) => d3.line().defined((s) => s[key] !== null).x((s) => x(s.month) + x.bandwidth() / 2).y((s) => yLag(s[key]));
+  svg.append('path').datum(series).attr('d', line('p90Lag')).attr('fill', 'none').attr('stroke', MUTED).attr('stroke-width', 2).attr('stroke-dasharray', '4 3');
+  svg.append('path').datum(series).attr('d', line('medianLag')).attr('fill', 'none').attr('stroke', BLUE).attr('stroke-width', 2);
+  svg.append('text').attr('x', left).attr('y', botY - 6).attr('font-size', 11).attr('fill', INK).text('— median   ┄ 90th percentile   (lag among the bills summarized so far; recent months are right-censored)');
+  monthAxis(botY + botH + 14);
+  // brush over the whole height; snaps to month bands and sets state.range
+  const brush = d3.brushX().extent([[left, topY], [W - right, botY + botH]]).on('end', ({ selection, sourceEvent }) => {
+    if (!sourceEvent) return; // programmatic move, not the user
+    if (!selection) { state.range = null; render(state); return; }
+    const picked = series.filter((s) => x(s.month) + x.bandwidth() > selection[0] && x(s.month) < selection[1]).map((s) => s.month);
+    if (picked.length === 0) { state.range = null; render(state); return; }
+    state.range = [`${picked[0]}-01`, lastDay(picked[picked.length - 1])];
+    render(state);
+  });
+  const g = svg.append('g').call(brush);
+  if (state.range) {
+    const from = series.findIndex((s) => `${s.month}-01` === state.range[0]);
+    const to = series.findIndex((s) => lastDay(s.month) === state.range[1]);
+    if (from >= 0 && to >= 0) g.call(brush.move, [x(series[from].month), x(series[to].month) + x.bandwidth()]);
+  }
 }
 
 export function render(state) {
@@ -84,6 +146,7 @@ export function render(state) {
   const records = filterRecords(state.records, state);
   renderHeader(records, filterRecords(state.records, { stage: 'all', type: state.type, range: state.range }));
   renderHistogram(records, state.width);
+  renderTimeseries(filterRecords(state.records, { stage: state.stage, type: state.type, range: null }), state);
 }
 
 async function main() {

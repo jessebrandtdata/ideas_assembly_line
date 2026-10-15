@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { headerMetrics, binLags, filterRecords } from './metrics.js';
+import { headerMetrics, binLags, filterRecords, monthlySeries } from './metrics.js';
 
 const rec = (o) => ({ type: 'hr', number: '1', stage: 'introduced', text_date: '2025-01-10',
   summary_date: null, lag_days: null, pages: null, reported: false, title: 't', ...o });
@@ -63,4 +63,19 @@ test('filterRecords by stage, type, and inclusive date range', () => {
   assert.deepEqual(filterRecords(rs, { stage: 'all', type: 's', range: null }).map((r) => r.number), ['3']);
   assert.deepEqual(filterRecords(rs, { stage: 'all', type: 'all', range: ['2025-03-10', '2025-06-30'] }).map((r) => r.number), ['2', '3']);
   assert.deepEqual(filterRecords(rs, { stage: 'all', type: 'all', range: ['2026-01-01', '2026-12-31'] }), []);
+});
+
+test('monthlySeries groups by month of text_date with lag quantiles', () => {
+  const s = monthlySeries([
+    rec({ number: '1', text_date: '2025-01-03', lag_days: 10 }),
+    rec({ number: '2', text_date: '2025-01-20', lag_days: 30 }),
+    rec({ number: '3', text_date: '2025-01-25' }),
+    rec({ number: '4', text_date: '2025-03-01' }),
+    rec({ number: '5', stage: null, text_date: '2025-01-28', pages: 3 }), // later edition: never counted
+  ]);
+  assert.deepEqual(s, [
+    { month: '2025-01', summarized: 2, waiting: 1, medianLag: 20, p90Lag: 30 },
+    { month: '2025-03', summarized: 0, waiting: 1, medianLag: null, p90Lag: null },
+  ]);
+  assert.deepEqual(monthlySeries([]), []);
 });

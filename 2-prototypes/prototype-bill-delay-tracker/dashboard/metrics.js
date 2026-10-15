@@ -49,3 +49,24 @@ export function filterRecords(records, { stage = 'all', type = 'all', range = nu
     (type === 'all' || r.type === type) &&
     (range === null || (r.text_date >= range[0] && r.text_date <= range[1])));
 }
+
+/** Per month of text_date: how many got a summary, how many wait, and lag quantiles among the summarized. */
+export function monthlySeries(records) {
+  const byMonth = new Map();
+  for (const r of records) {
+    if (r.stage === null) continue; // later editions never get a summary of their own
+    const month = r.text_date.slice(0, 7);
+    if (!byMonth.has(month)) byMonth.set(month, { lags: [], waiting: 0 });
+    const m = byMonth.get(month);
+    if (r.lag_days === null) m.waiting += 1; else m.lags.push(r.lag_days);
+  }
+  return [...byMonth.keys()].sort().map((month) => {
+    const { lags, waiting } = byMonth.get(month);
+    const sorted = lags.sort((a, b) => a - b);
+    return {
+      month, summarized: sorted.length, waiting,
+      medianLag: median(sorted),
+      p90Lag: sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.9))] : null,
+    };
+  });
+}
