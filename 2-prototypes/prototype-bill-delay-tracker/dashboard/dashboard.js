@@ -1,4 +1,4 @@
-import { headerMetrics, binLags, filterRecords, monthlySeries } from './metrics.js';
+import { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries } from './metrics.js';
 
 const BLUE = '#104378', RED = '#b2182b', INK = '#1f2933', MUTED = '#6b7280';
 const fmt = d3.format(',');
@@ -158,12 +158,35 @@ function renderTimeseries(records, state) {
   }
 }
 
+function renderCumulative(target, series, keys, labels, title, yLabel) {
+  const W = 920, H = 300, left = 76, right = 16, top = 36, bottom = 56;
+  const fig = d3.select(target).html('');
+  if (series.length === 0) return;
+  const parse = d3.utcParse('%Y-%m-%d');
+  const x = d3.scaleUtc().domain(d3.extent(series, (s) => parse(s.date))).range([left, W - right]);
+  const y = d3.scaleLinear().domain([0, d3.max(series, (s) => s[keys[0]])]).nice().range([H - bottom, top]);
+  const svg = fig.append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', title);
+  svg.append('text').attr('x', left).attr('y', 18).attr('font-size', 14).attr('font-weight', 600).attr('fill', INK).text(title);
+  svg.append('g').attr('transform', `translate(${left},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(fmt)).call((g) => g.select('.domain').remove());
+  svg.append('g').attr('transform', `translate(0,${H - bottom})`).call(d3.axisBottom(x).ticks(d3.utcMonth.every(2)).tickFormat(d3.utcFormat('%b %Y'))).call((g) => g.select('.domain').remove());
+  svg.append('text').attr('transform', `translate(14,${(top + H - bottom) / 2}) rotate(-90)`).attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK).text(yLabel);
+  const line = (key) => d3.line().curve(d3.curveStepAfter).x((s) => x(parse(s.date))).y((s) => y(s[key]));
+  svg.append('path').datum(series).attr('d', line(keys[0])).attr('fill', 'none').attr('stroke', BLUE).attr('stroke-width', 2);
+  svg.append('path').datum(series).attr('d', line(keys[1])).attr('fill', 'none').attr('stroke', RED).attr('stroke-width', 2);
+  const last = series[series.length - 1];
+  svg.append('text').attr('x', W - right).attr('y', y(last[keys[0]]) - 6).attr('font-size', 11).attr('text-anchor', 'end').attr('fill', BLUE).text(`${fmt(last[keys[0]])} ${labels[0]}`);
+  svg.append('text').attr('x', W - right).attr('y', y(last[keys[1]]) - 6).attr('font-size', 11).attr('text-anchor', 'end').attr('fill', RED).text(`${fmt(last[keys[1]])} ${labels[1]}`);
+}
+
 export function render(state) {
   renderControls(state);
   const records = filterRecords(state.records, state);
   renderHeader(records, filterRecords(state.records, { stage: 'all', type: state.type, range: state.range }));
   renderHistogram(records, state.width, state.stage);
   renderTimeseries(filterRecords(state.records, { stage: state.stage, type: state.type, range: null }), state);
+  const unranged = filterRecords(state.records, { stage: state.stage, type: state.type, range: null });
+  renderCumulative('#cumulative', cumulativeSeries(unranged), ['withText', 'summarized'], ['with text', 'summarized'],
+    'Congress to date: bills with text issued, and bills with a CRS summary. The gap is the backlog.', 'bills');
 }
 
 async function main() {

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { headerMetrics, binLags, filterRecords, monthlySeries } from './metrics.js';
+import { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries } from './metrics.js';
 
 const rec = (o) => ({ type: 'hr', number: '1', stage: 'introduced', text_date: '2025-01-10',
   summary_date: null, lag_days: null, pages: null, reported: false, title: 't', ...o });
@@ -87,4 +87,19 @@ test('binLags totals are width-invariant', () => {
   assert.equal(total(30), 4);
   assert.equal(total(90), 4);
   assert.equal(binLags(rs, 7).at(-1).to, null); // 800/7 > 20 bins → open last bin
+});
+
+test('cumulativeSeries counts distinct bills with text and with a summary by date', () => {
+  const s = cumulativeSeries([
+    rec({ number: '1', text_date: '2025-01-03', summary_date: '2025-01-20', lag_days: 17 }),
+    rec({ number: '2', text_date: '2025-01-03' }),
+    rec({ number: '3', text_date: '2025-02-01', summary_date: '2025-02-01', lag_days: 0 }),
+    rec({ number: '3', stage: null, text_date: '2025-03-01', pages: 4 }),
+  ]);
+  assert.deepEqual(s, [
+    { date: '2025-01-03', withText: 2, summarized: 0 },
+    { date: '2025-01-20', withText: 2, summarized: 1 },
+    { date: '2025-02-01', withText: 3, summarized: 2 },
+  ]);
+  assert.deepEqual(cumulativeSeries([]), []);
 });

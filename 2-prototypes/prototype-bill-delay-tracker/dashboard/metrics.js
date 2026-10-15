@@ -70,3 +70,18 @@ export function monthlySeries(records) {
     };
   });
 }
+
+/** Running counts of distinct bills with any text and with any summary, by date. */
+export function cumulativeSeries(records) {
+  const firstText = new Map(), firstSummary = new Map();
+  for (const r of records) {
+    if (r.stage === null) continue;
+    const k = billKey(r);
+    if (!firstText.has(k) || r.text_date < firstText.get(k)) firstText.set(k, r.text_date);
+    if (r.summary_date !== null && (!firstSummary.has(k) || r.summary_date < firstSummary.get(k))) firstSummary.set(k, r.summary_date);
+  }
+  const dates = [...new Set([...firstText.values(), ...firstSummary.values()])].sort();
+  const textDates = [...firstText.values()].sort(), summaryDates = [...firstSummary.values()].sort();
+  const countLE = (sorted, d) => { let lo = 0, hi = sorted.length; while (lo < hi) { const mid = (lo + hi) >> 1; if (sorted[mid] <= d) lo = mid + 1; else hi = mid; } return lo; };
+  return dates.map((date) => ({ date, withText: countLE(textDates, date), summarized: countLE(summaryDates, date) }));
+}
