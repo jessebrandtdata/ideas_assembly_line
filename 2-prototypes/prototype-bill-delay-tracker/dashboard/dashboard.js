@@ -13,13 +13,14 @@ function card(label, value, note = '') {
   return `<div class="card"><div class="value">${value}</div><div class="label">${label}</div><div class="note">${note}</div></div>`;
 }
 
-function renderHeader(records, allVersions, stage) {
+function renderHeader(records, pageRecords, anyStage, stage) {
   const m = headerMetrics(records);
-  const p = headerMetrics(allVersions); // pages count every edition, not only the staged one; reported ignores the stage select
+  const p = headerMetrics(pageRecords); // pages follow the stage select (every edition for 'all')
+  const r = headerMetrics(anyStage); // reported ignores the stage select
   document.getElementById('cards').innerHTML = [
-    card('pages of bill text', fmt(p.pagesTotal), `${fmt(p.pagesCounted)} of ${fmt(p.versions)} versions counted`),
+    card('pages of bill text', fmt(p.pagesTotal), `${fmt(p.pagesCounted)} of ${fmt(p.versions)} ${stage === 'all' ? '' : `${stage} `}versions counted`),
     card('bills summarized', fmt(m.summarized), `${fmt(m.waiting)} ${stage === 'all' ? 'bills with no summary at any stage' : 'still waiting'}`),
-    card('reported by committee', fmt(p.reported), 'bills with an rh/rs text version'),
+    card('reported by committee', fmt(r.reported), 'bills with an rh/rs text version (any stage)'),
     card('mean lag (days)', day(m.lagMean), `n=${fmt(m.n)}`),
     card('median lag (days)', day(m.lagMedian)),
     card('max lag (days)', day(m.lagMax)),
@@ -339,7 +340,9 @@ export function render(state) {
   renderControls(state);
   const unranged = filterRecords(state.records, { stage: state.stage, type: state.type, range: null });
   const records = filterRecords(state.records, state);
-  renderHeader(records, filterRecords(state.records, { stage: 'all', type: state.type, range: state.range }), state.stage);
+  const allEditions = filterRecords(state.records, { stage: 'all', type: state.type, range: state.range });
+  const pageRecords = state.stage === 'all' ? allEditions : records;
+  renderHeader(records, pageRecords, allEditions, state.stage);
   renderPreText();
   renderLists(records);
   renderHistogram(records, state);
@@ -347,12 +350,11 @@ export function render(state) {
   const scope = rangeLabel(state.range);
   renderCumulative('#cumulative .chart', cumulativeSeries(records), ['withText', 'summarized'], ['with text', 'summarized'],
     `${scope}: bills with text issued, and bills with a CRS summary. The gap is the backlog.`, 'bills');
-  const allEditions = filterRecords(state.records, { stage: 'all', type: state.type, range: state.range });
-  const pagesSeries = cumulativePages(allEditions, state.stage);
+  const pagesSeries = cumulativePages(pageRecords);
   const uncounted = pagesSeries.length ? pagesSeries.at(-1).versionsWithoutPages : 0;
   renderCumulative('#cumulative-pages .chart', pagesSeries, ['pagesIssued', 'pagesSummarized'], ['pages issued', 'pages summarized'],
     `${scope}: pages of bill text issued, and pages covered by a CRS summary.`, 'pages',
-    [uncounted ? `${fmt(uncounted)} versions not yet page-counted.` : '', `Summaries: ${state.stage === 'all' ? 'all stages' : `${state.stage} stage`}.`].filter(Boolean).join(' '));
+    [uncounted ? `${fmt(uncounted)} versions not yet page-counted.` : '', (state.stage === 'all' ? 'Pages of every text version; summaries at any stage.' : `Pages of ${state.stage} text versions.`)].filter(Boolean).join(' '));
 }
 
 async function main() {

@@ -97,14 +97,14 @@ export function cumulativeSeries(records) {
   return dates.map((date) => ({ date, withText: countLE(textDates, date), summarized: countLE(summaryDates, date) }));
 }
 
-/** Running page totals (summaries restricted to `stage` unless 'all'): pages of every text version issued, and pages of the staged versions whose summary has arrived. */
-export function cumulativePages(records, stage = 'all') {
+/** Running page totals over the given records (the caller scopes them to a stage, or passes every edition for 'all'): pages issued, and pages of the staged records whose summary has arrived. */
+export function cumulativePages(records) {
   const issued = [], summarized = [], missing = [];
   for (const r of records) {
     if (r.pages === null) missing.push(r.text_date);
     else {
       issued.push([r.text_date, r.pages]);
-      if (r.stage !== null && r.summary_date !== null && (stage === 'all' || r.stage === stage)) summarized.push([r.summary_date, r.pages]);
+      if (r.stage !== null && r.summary_date !== null) summarized.push([r.summary_date, r.pages]);
     }
   }
   const dates = [...new Set([...issued.map((p) => p[0]), ...summarized.map((p) => p[0]), ...missing])].sort();

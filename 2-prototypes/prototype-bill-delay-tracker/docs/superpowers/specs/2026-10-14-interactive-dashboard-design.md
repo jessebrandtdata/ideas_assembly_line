@@ -50,9 +50,10 @@ stays for the Python report.
 Fetches `../data/delays.json` relative to the page. Opens from
 `python3 -m http.server` in the prototype folder.
 
-Header row, recomputed from the filtered records: pages processed (with "n of m
-versions counted"), bills summarized, bills reported by committee (distinct bills with a reported-stage record under the type
-filter and date range, ignoring the stage select), mean /
+Header row, recomputed from the filtered records: pages of bill text (with "n of m
+<stage> versions counted"; at a stage it totals that stage's text versions only, at
+all stages every edition including unmapped ones), bills summarized, bills reported by committee (distinct bills with a reported-stage record under the type
+filter and date range, ignoring the stage select; subtitle "bills with an rh/rs text version (any stage)"), mean /
 median / max lag in days.
 
 Foot of the page, after the cumulative pages chart and before the caveat: two
@@ -92,7 +93,7 @@ title names both counts either way. The strip under the chart holds the slider (
    filtered), keyboard-reachable controls
 6. cumulative bills with text vs bills with a CRS summary (the gap is the backlog)
    Charts 6 and 7 use the same type filter and date range as the cards; titles read "Congress to date", or name the range ("3 Mar 2025 – 30 Jun 2025", "from 3 Mar 2025", "to 30 Jun 2025").
-7. cumulative pages of text issued vs pages covered by a summary (follows the stage filter)
+7. cumulative pages of text issued vs pages covered by a summary (follows the stage filter: at a stage, both lines cover only that stage's text versions, summarized being those with a summary; at all stages, issued counts every edition and summarized the staged records with a summary)
 
 State is one object; `render(state)` redraws everything from it.
 

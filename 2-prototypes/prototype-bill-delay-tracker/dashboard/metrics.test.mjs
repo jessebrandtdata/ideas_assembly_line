@@ -150,16 +150,25 @@ test('binLags floors a negative lag into the first bin', () => {
   assert.deepEqual(bins, [{ from: 0, to: 30, count: 1 }, { from: 30, to: 60, count: 1 }]);
 });
 
-test('cumulativePages follows the stage filter for summarized pages only', () => {
+test('cumulativePages over a stage-filtered set counts only that stage, issued and summarized', () => {
   const rs = [
     rec({ number: '1', stage: 'introduced', text_date: '2025-01-03', summary_date: '2025-01-20', lag_days: 17, pages: 10 }),
     rec({ number: '1', stage: 'reported', text_date: '2025-02-01', summary_date: '2025-02-10', lag_days: 9, pages: 5 }),
+    rec({ number: '2', stage: 'reported', text_date: '2025-02-02', pages: 7 }),
+    rec({ number: '3', stage: null, text_date: '2025-02-03', pages: 100 }),
   ];
-  const last = (st) => cumulativePages(rs, st).at(-1);
-  assert.equal(last('all').pagesSummarized, 15);
-  assert.equal(last('reported').pagesSummarized, 5);
-  assert.equal(last('reported').pagesIssued, 15); // issued still counts the introduced-stage record
-  assert.equal(last('passed').pagesSummarized, 0);
+  const last = (set) => cumulativePages(set).at(-1);
+  const all = last(rs);
+  assert.equal(all.pagesIssued, 122); // every edition, including the unmapped one
+  assert.equal(all.pagesSummarized, 15);
+  const rep = rs.filter((r) => r.stage === 'reported');
+  assert.equal(last(rep).pagesIssued, 12);
+  assert.equal(last(rep).pagesSummarized, 5);
+  assert.equal(headerMetrics(rep).pagesTotal, 12);
+  assert.equal(headerMetrics(rep).pagesCounted, 2);
+  assert.equal(headerMetrics(rep).versions, 2);
+  assert.equal(headerMetrics(rs).pagesTotal, 122);
+  assert.equal(last(rs.filter((r) => r.stage === 'passed')), undefined);
 });
 
 test('headerMetrics.reported counts distinct bills with a reported-stage record, even without an introduced record', () => {
