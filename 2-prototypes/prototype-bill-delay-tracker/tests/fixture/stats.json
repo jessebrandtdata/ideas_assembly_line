@@ -1,6 +1,6 @@
 {
  "as_of": "2026-10-14",
- "computed_at": "2026-10-15T00:01:10+00:00",
+ "computed_at": "2026-10-15T02:50:24+00:00",
  "congress": "119",
  "bills_with_text": 3,
  "text_versions": 4,
@@ -125,6 +125,15 @@
    "from": 365,
    "to": null,
    "count": 0
+  }
+ ],
+ "monthly_introduced": [
+  {
+   "month": "2026-10",
+   "summarized": 1,
+   "awaiting": 1,
+   "median_lag": 4,
+   "p90_lag": 4
   }
  ],
  "summaries_collected": 3,
