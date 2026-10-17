@@ -44,9 +44,10 @@
     return Math.max(1, waiting, ...bins.map((b) => b.count));
   }
 
-  /** Fixed-width bins of lag_days from 0 to the largest lag in view; no open-ended bin. */
+  /** Fixed-width bins of lag_days from 0 to the largest lag in view; no open-ended bin. A negative lag (a summary
+   *  dated before its text reached GovInfo; a handful exist) is left out rather than folded into the first bin. */
   function binLags(records, width) {
-    const lags = records.filter((r) => r.lag_days !== null).map((r) => r.lag_days);
+    const lags = records.filter((r) => r.lag_days !== null && r.lag_days >= 0).map((r) => r.lag_days);
     if (lags.length === 0) return [];
     const count = Math.floor(Math.max(0, ...lags) / width) + 1;
     const bins = Array.from({ length: count }, (_, i) => ({ from: i * width, to: (i + 1) * width, count: 0 }));

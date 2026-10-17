@@ -4,8 +4,12 @@
 Reads versions.csv, pages.csv, summaries.csv from --data-dir; writes delays.csv,
 awaiting.csv and stats.json there. Stdlib only.
 
-Lag definition (the honest one the data allows): summary.update_date minus
-version.date_issued, matched by stage (introduced / reported / passed / enrolled).
+Lag definition: summary.last_summary_update_date minus version.date_ingested, matched by
+stage (introduced / reported / passed / enrolled). date_ingested (GovInfo MODS, collected into
+ingest.csv) is the day the text appeared on GovInfo; date_issued, the date printed on the bill,
+is kept as printed_date and is the fallback when no ingest date was collected. The summary date
+is the one the Congress.gov API documents as "the date the bill summary was last updated"; the
+API exposes no first-publication date, so a summary revised later reads slower than it was.
 The API exposes no "first published" date for a summary, only its last update,
 so a summary CRS revised later reads as a longer lag than the user actually
 waited. date_issued is the date printed on the version, not the day GPO posted it.
@@ -85,7 +89,17 @@ def main():
 
     versions = read_csv(a.data_dir / "versions.csv")
     pages = {r["package_id"]: int(r["pages"]) for r in read_csv(a.data_dir / "pages.csv") if r["pages"].isdigit()}
+    ingested = {r["package_id"]: r["date_ingested"] for r in read_csv(a.data_dir / "ingest.csv") if r["date_ingested"]}
     summaries = read_csv(a.data_dir / "summaries.csv")
+
+    def published(v):
+        """The day the text appeared on GovInfo (MODS dateIngested), else the printed date."""
+        return ingested.get(v["package_id"]) or v["date_issued"]
+
+    def summary_date(s):
+        """What the API documents as the date the summary was last updated; updateDate is the
+        Congress.gov record's update, which runs later for a few percent of summaries."""
+        return s["last_summary_update_date"] or s["update_date"]
 
     # earliest text version per (bill, stage)
     text = {}
@@ -113,7 +127,7 @@ def main():
         bill = (s["bill_type"], s["number"])
         bills_summarized.add(bill)
         k = bill + (stage,)
-        if k not in summ or s["update_date"] < summ[k]["update_date"]:
+        if k not in summ or summary_date(s) < summary_date(summ[k]):
             summ[k] = s
 
     delays = []
@@ -121,24 +135,24 @@ def main():
         s = summ.get(k)
         if not s:
             continue
-        td, sd = to_date(v["date_issued"]), to_date(s["update_date"])
+        td, sd = to_date(published(v)), to_date(summary_date(s))
         delays.append({"bill_type": k[0], "number": k[1], "stage": k[2], "package_id": v["package_id"],
-                       "text_date": td.isoformat(), "summary_date": sd.isoformat(),
+                       "text_date": td.isoformat(), "printed_date": v["date_issued"], "summary_date": sd.isoformat(),
                        "delay_days": (sd - td).days, "pages": pages.get(v["package_id"], ""),
                        "title": v["title"]})
     write_csv(a.data_dir / "delays.csv", delays,
-              ["bill_type", "number", "stage", "package_id", "text_date", "summary_date", "delay_days", "pages", "title"])
+              ["bill_type", "number", "stage", "package_id", "text_date", "printed_date", "summary_date", "delay_days", "pages", "title"])
 
     awaiting = []
     for k, v in sorted(text.items()):
         if k[2] == "introduced" and k not in summ:
-            td = to_date(v["date_issued"])
+            td = to_date(published(v))
             awaiting.append({"bill_type": k[0], "number": k[1], "package_id": v["package_id"],
-                             "text_date": td.isoformat(), "age_days": (as_of - td).days,
+                             "text_date": td.isoformat(), "printed_date": v["date_issued"], "age_days": (as_of - td).days,
                              "pages": pages.get(v["package_id"], ""), "title": v["title"]})
     awaiting.sort(key=lambda r: -r["age_days"])
     write_csv(a.data_dir / "awaiting.csv", awaiting,
-              ["bill_type", "number", "package_id", "text_date", "age_days", "pages", "title"])
+              ["bill_type", "number", "package_id", "text_date", "printed_date", "age_days", "pages", "title"])
 
     # one record per text version for the dashboard. Only the earliest edition of a
     # (bill, stage) carries the stage and its lag; every other edition keeps its pages
@@ -148,10 +162,10 @@ def main():
     for v in sorted(versions, key=lambda v: (v["bill_type"], int(v["number"]), v["date_issued"])):
         k = earliest.get(v["package_id"])
         s = summ.get(k) if k else None
-        td = to_date(v["date_issued"])
-        sd = to_date(s["update_date"]) if s else None
+        td = to_date(published(v))
+        sd = to_date(summary_date(s)) if s else None
         records.append({"type": v["bill_type"], "number": v["number"], "stage": k[2] if k else None,
-                        "text_date": td.isoformat(),
+                        "text_date": td.isoformat(), "printed_date": v["date_issued"],
                         "summary_date": sd.isoformat() if sd else None,
                         "lag_days": (sd - td).days if sd else None,
                         "pages": pages.get(v["package_id"]),
@@ -159,7 +173,10 @@ def main():
                         "title": v["title"]})
     before_text = Counter(k[2] for k in summ if k not in text)
     envelope = {"as_of": as_of.isoformat(), "congress": versions[0]["congress"] if versions else None,
-                "summary_before_text": dict(sorted(before_text.items())), "records": records}
+                "summary_before_text": dict(sorted(before_text.items())),
+                # how many text versions fell back to the printed date for want of an ingest date
+                "versions_without_ingest_date": sum(1 for v in versions if v["package_id"] not in ingested),
+                "records": records}
     envelope_json = json.dumps(envelope, separators=(",", ":"))
     (a.data_dir / "delays.json").write_text(envelope_json + "\n")
     # The same document again as a script the dashboard can load from disk. Browsers refuse fetch()

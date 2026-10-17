@@ -12,10 +12,28 @@ const day = (v) => (v === null ? '–' : `${Math.round(v)}`);
 let congress = ''; // envelope's congress number, set in main()
 let asOf = ''; // envelope's as_of date (ISO)
 
-const state = { records: [], summaryBefore: {}, stage: 'all', type: 'all', range: { from: null, to: null }, includeWaiting: true, width: 30 };
+const state = { records: [], summaryBefore: {}, stage: 'introduced', type: 'all', range: { from: null, to: null }, includeWaiting: true, width: 30 };
 
 function card(label, value, note = '') {
   return `<div class="card"><div class="value">${value}</div><div class="label">${label}</div><div class="note">${note}</div></div>`;
+}
+
+// CRS writes summaries for introduced versions only in the 119th Congress (Congress.gov help, Bill
+// Summaries, read 2026-10-16), so "waiting" only means a queue at the introduced stage. At the later
+// stages a version without a summary is the norm, and the wording below says so instead.
+const laterStage = (stage) => stage !== 'introduced' && stage !== 'all';
+const noSummary = (stage) => (stage === 'introduced' ? 'still waiting' : stage === 'all' ? 'with no summary at any stage' : `without ${stage === 'enrolled' ? 'an' : 'a'} ${stage}-stage summary`);
+const noSummaryTick = (stage) => (laterStage(stage) ? 'no summary' : 'waiting');
+
+function renderPolicy(records, stage) {
+  const el = document.getElementById('policy');
+  if (stage === 'introduced') { el.hidden = true; el.textContent = ''; return; }
+  const quote = 'In the 119th Congress CRS is writing bill summaries for introduced versions of measures only; "CRS is not writing bill summaries for subsequent versions of measures as they move through the legislative process" (Congress.gov help, Bill Summaries).';
+  const n = records.filter((r) => r.lag_days !== null && r.stage !== 'introduced').length;
+  el.textContent = stage === 'all'
+    ? `${quote} The ${fmt(n)} later-stage summaries in this view are exceptions; lag and "waiting" mean a queue only at the introduced stage.`
+    : `${quote} The ${fmt(n)} ${stage}-stage summaries in this view are exceptions, and ${stage === 'enrolled' ? 'an' : 'a'} ${stage} version without one is not in a queue.`;
+  el.hidden = false;
 }
 
 function renderHeader(records, pageRecords, anyStage, stage) {
@@ -24,7 +42,7 @@ function renderHeader(records, pageRecords, anyStage, stage) {
   const r = headerMetrics(anyStage); // reported ignores the stage select
   document.getElementById('cards').innerHTML = [
     card('pages of bill text', fmt(p.pagesTotal), `${fmt(p.pagesCounted)} of ${fmt(p.versions)} ${stage === 'all' ? '' : `${stage} `}versions counted`),
-    card('bills summarized', fmt(m.summarized), `${fmt(m.waiting)} ${stage === 'all' ? 'bills with no summary at any stage' : 'still waiting'}`),
+    card('bills summarized', fmt(m.summarized), `${fmt(m.waiting)} ${stage === 'all' ? 'bills ' : ''}${noSummary(stage)}`),
     card('reported by committee', fmt(r.reported), 'bills with an rh/rs text version (any stage)'),
     card('mean lag (days)', day(m.lagMean), `n=${fmt(m.n)}`),
     card('median lag (days)', day(m.lagMedian)),
@@ -41,6 +59,7 @@ function renderPreText() {
 
 function renderHistogram(records, state) {
   const { width, stage, includeWaiting } = state;
+  const negative = records.filter((r) => r.lag_days !== null && r.lag_days < 0).length;
   const bins = binLags(records, width);
   const m = headerMetrics(records);
   const W = 920, H = 320, left = 56, right = 16, top = 36, bottom = 56;
@@ -52,7 +71,7 @@ function renderHistogram(records, state) {
   const svg = fig.append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
     .attr('aria-label', 'Histogram of lag in days');
   svg.append('text').attr('x', left).attr('y', 13).attr('font-size', 14).attr('font-weight', 600).attr('fill', INK)
-    .text(`Days from text to CRS summary, ${width}-day bins (n=${fmt(m.n)} ${stage === 'all' ? 'text versions with a summary' : 'summarized'}, ${fmt(m.waiting)} ${stage === 'all' ? 'bills ' : ''}still waiting)`);
+    .text(`Days from text on GovInfo to CRS summary, ${width}-day bins (n=${fmt(m.n)} ${stage === 'all' ? 'text versions with a summary' : 'summarized'}, ${fmt(m.waiting)} ${stage === 'all' ? 'bills ' : ''}${noSummary(stage)}${negative ? `; ${fmt(negative)} dated before the text reached GovInfo, not binned` : ''})`);
   const x = d3.scaleBand().domain([...bins.map((_, i) => i), ...(includeWaiting ? ['waiting'] : [])]).range([left, W - right]).padding(0.12);
   const unit = stage === 'all' ? 'text versions' : 'bills';
   const y = d3.scaleLinear().domain([0, histogramMax(bins, includeWaiting ? m.waiting : 0)]).nice().range([H - bottom, top]);
@@ -60,7 +79,7 @@ function renderHistogram(records, state) {
     .call((g) => g.select('.domain').remove()).selectAll('text').attr('fill', MUTED);
   const every = Math.max(1, Math.ceil(48 / x.step())); // at least ~48 px per x label
   const binLabel = (b) => `${b.from}–${b.to - 1}`;
-  const axis = d3.axisBottom(x).tickFormat((i) => (i === 'waiting' ? 'waiting' : binLabel(bins[i])));
+  const axis = d3.axisBottom(x).tickFormat((i) => (i === 'waiting' ? noSummaryTick(stage) : binLabel(bins[i])));
   svg.append('g').attr('transform', `translate(0,${H - bottom})`).call(axis)
     .call((g) => g.select('.domain').remove())
     .call((g) => g.selectAll('.tick').filter((i) => i !== 'waiting' && i % every !== 0).remove())
@@ -86,7 +105,7 @@ function renderHistogram(records, state) {
   }
   // the censoring, visible: one red bar for what has no summary yet, on the same scale as the bins
   if (includeWaiting) {
-    const waitText = stage === 'all' ? `still waiting for a summary at any stage: ${fmt(m.waiting)} bills` : `still waiting for a summary: ${fmt(m.waiting)}`;
+    const waitText = stage === 'all' ? `with no summary at any stage: ${fmt(m.waiting)} bills` : `${noSummary(stage)}: ${fmt(m.waiting)}`;
     const wx = x('waiting');
     svg.append('rect').attr('id', 'waiting-bar').attr('x', wx).attr('y', y(m.waiting)).attr('width', x.bandwidth()).attr('height', y(0) - y(m.waiting))
       .attr('fill', RED).attr('rx', 2).on('mousemove', (event) => {
@@ -106,7 +125,8 @@ function renderHistogram(records, state) {
   }
 }
 
-const STAGES = [['all', 'All stages'], ['introduced', 'Introduced'], ['reported', 'Reported by committee'], ['passed', 'Passed a chamber'], ['enrolled', 'Enrolled']];
+const STAGES = [['introduced', 'Introduced'], ['reported', 'Reported by committee (CRS exceptions only)'], ['passed', 'Passed a chamber (CRS exceptions only)'],
+  ['enrolled', 'Enrolled (CRS exceptions only)'], ['all', 'All stages']];
 const TYPES = [['all', 'All bill types'], ['hr', 'H.R.'], ['s', 'S.'], ['hjres', 'H.J.Res.'], ['sjres', 'S.J.Res.']];
 
 function select(id, label, options, value) {
@@ -120,7 +140,7 @@ function renderControls(state) {
   const { min, max } = dateBounds(state.records);
   const dateInput = (id, label) => `<label>${label}<input type="date" id="${id}" min="${min}" max="${max}"></label>`;
   el.innerHTML = select('stage', 'Stage', STAGES, state.stage) + select('type', 'Bill type', TYPES, state.type)
-    + dateInput('date-from', 'Introduced from') + dateInput('date-to', 'to')
+    + dateInput('date-from', 'Text posted from') + dateInput('date-to', 'to')
     + '<button id="clear-dates" type="button">Clear date filters</button>';
   const from = el.querySelector('#date-from'), to = el.querySelector('#date-to');
   el.querySelector('#stage').addEventListener('change', (e) => { state.stage = e.target.value; render(state); });
@@ -300,12 +320,12 @@ function exportPng(figure) {
   img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(text)}`;
 }
 
-const CSV_COLUMNS = ['bill', 'stage', 'type', 'number', 'text_date', 'summary_date', 'days', 'pages', 'title', 'url'];
+const CSV_COLUMNS = ['bill', 'stage', 'type', 'number', 'text_date', 'printed_date', 'summary_date', 'days', 'pages', 'title', 'url'];
 function exportCsv(which) {
   const records = currentRecords(state);
   const lags = which === 'longest-lags';
-  const rows = (lags ? longestLags(records, Infinity) : oldestWaiting(records, asOf, Infinity)).map((r) => ({
-    bill: billLabel(r.type, r.number), stage: r.stage, type: r.type, number: r.number, text_date: r.text_date,
+  const rows = (lags ? longestLags(records, Infinity) : oldestWaiting(waitingRecords(records, state.stage), asOf, Infinity)).map((r) => ({
+    bill: billLabel(r.type, r.number), stage: r.stage, type: r.type, number: r.number, text_date: r.text_date, printed_date: r.printed_date,
     summary_date: lags ? r.summary_date : '', days: lags ? r.lag_days : r.days_waiting, pages: r.pages, title: r.title,
     url: billUrl(congress, r.type, r.number),
   }));
@@ -338,14 +358,25 @@ function renderTable(selector, rows, cols) {
 
 const billCell = (r) => `<a href="${esc(billUrl(congress, r.type, r.number))}" target="_blank" rel="noopener">${esc(billLabel(r.type, r.number))}</a>`;
 
-function renderLists(records) {
-  const bill = ['Bill', billCell, 'nowrap'], stage = ['Stage', (r) => esc(r.stage), 'nowrap'];
-  const textDate = ['Text date', (r) => esc(r.text_date), 'nowrap'], pages = ['Pages', (r) => (r.pages == null ? '–' : fmt(r.pages)), 'num'];
+/** Records the "oldest without a summary" table ranks. Under "All stages" that is the introduced version of each
+ *  bill with no summary at any stage, matching the header's bill-level count; a later-stage version of a bill
+ *  whose introduced summary exists is not waiting for anything. Other stages: the view's own records. */
+function waitingRecords(records, stage) {
+  if (stage !== 'all') return records;
+  const summarized = new Set(records.filter((r) => r.lag_days !== null).map((r) => `${r.type}${r.number}`));
+  return records.filter((r) => r.stage === 'introduced' && !summarized.has(`${r.type}${r.number}`));
+}
+
+function renderLists(records, stage) {
+  document.getElementById('oldest-heading').textContent = stage === 'introduced' ? 'Oldest bills still waiting'
+    : stage === 'all' ? 'Oldest bills with no summary at any stage' : `Oldest without ${stage === 'enrolled' ? 'an' : 'a'} ${stage}-stage summary`;
+  const bill = ['Bill', billCell, 'nowrap'], stageCol = ['Stage', (r) => esc(r.stage), 'nowrap'];
+  const textDate = ['Posted on GovInfo', (r) => esc(r.text_date), 'nowrap'], pages = ['Pages', (r) => (r.pages == null ? '–' : fmt(r.pages)), 'num'];
   const title = ['Title', (r) => esc(r.title), 'title'];
-  renderTable('#longest-lags', longestLags(records), [bill, stage, textDate,
+  renderTable('#longest-lags', longestLags(records), [bill, stageCol, textDate,
     ['Summary date', (r) => esc(r.summary_date), 'nowrap'], ['Days', (r) => fmt(r.lag_days), 'num'], pages, title]);
-  renderTable('#oldest-waiting', oldestWaiting(records, asOf), [bill, stage, textDate,
-    ['Days waiting', (r) => fmt(r.days_waiting), 'num'], pages, title]);
+  renderTable('#oldest-waiting', oldestWaiting(waitingRecords(records, stage), asOf), [bill, stageCol, textDate,
+    [laterStage(stage) ? 'Days since posted' : 'Days waiting', (r) => fmt(r.days_waiting), 'num'], pages, title]);
 }
 
 function render(state) {
@@ -355,8 +386,10 @@ function render(state) {
   const allEditions = filterRecords(state.records, { stage: 'all', type: state.type, range: state.range });
   const pageRecords = state.stage === 'all' ? allEditions : records;
   renderHeader(records, pageRecords, allEditions, state.stage);
+  renderPolicy(records, state.stage);
   renderPreText();
-  renderLists(records);
+  renderLists(records, state.stage);
+  document.getElementById('include-waiting-label').textContent = `Include bills ${noSummary(state.stage)}`;
   renderHistogram(records, state);
   renderTimeseries(unranged, state);
   const scope = rangeLabel(state.range);
@@ -383,7 +416,7 @@ function main() {
     asOf = doc.as_of;
     state.summaryBefore = doc.summary_before_text || {};
     document.getElementById('subtitle').textContent =
-      `Lag between a bill text version on GovInfo and its CRS summary on Congress.gov, ${ordinal(doc.congress)} Congress, as of ${doc.as_of}.`;
+      `Lag between a bill text version appearing on GovInfo and its CRS summary on Congress.gov, ${ordinal(doc.congress)} Congress, as of ${doc.as_of}.`;
     setupExports();
     render(state);
   } catch (err) {

@@ -11,8 +11,10 @@ only new ones are fetched. Stdlib only. DEMO_KEY works but is slow and capped
 (~30 requests/hour), so the --max-* knobs default low; raise them with a real key.
 """
 import argparse
+import concurrent.futures
 import csv
 import json
+import re
 import sys
 import time
 import urllib.error
@@ -36,6 +38,31 @@ def get_json(url, key, timeout=90, retries=3):
             req = urllib.request.Request(full, headers={"User-Agent": UA, "Accept": "application/json"})
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 return json.load(r)
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                wait = 30 * (attempt + 1)
+                print(f"  429 rate limited, sleeping {wait}s", file=sys.stderr)
+                time.sleep(wait)
+                continue
+            if e.code == 404:
+                return None
+            raise
+        except (urllib.error.URLError, TimeoutError) as e:
+            print(f"  retry {attempt + 1}/{retries} after {e}", file=sys.stderr)
+            time.sleep(5)
+    print(f"  gave up on {url}", file=sys.stderr)
+    return None
+
+
+def get_text(url, key, timeout=90, retries=3):
+    """Like get_json for a text or XML body (GovInfo MODS)."""
+    sep = "&" if "?" in url else "?"
+    full = f"{url}{sep}api_key={key}"
+    for attempt in range(retries):
+        try:
+            req = urllib.request.Request(full, headers={"User-Agent": UA})
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return r.read().decode("utf-8", "replace")
         except urllib.error.HTTPError as e:
             if e.code == 429:
                 wait = 30 * (attempt + 1)
@@ -136,6 +163,40 @@ def collect_pages(data_dir, key, versions, max_requests):
     return rows
 
 
+INGEST_FIELDS = ["package_id", "date_ingested"]
+
+
+def collect_ingest(data_dir, key, versions, max_requests, workers=4):
+    """GovInfo's dateIssued is the date printed on the bill (for an introduced bill, the day it was
+    introduced), not the day the text appeared on GovInfo. The MODS record carries dateIngested, the
+    day GovInfo took the package in, and that is the publication date the lag should start from.
+    One MODS call per version, newest first, written to ingest.csv as it lands; resumable."""
+    path = data_dir / "ingest.csv"
+    rows = read_csv(path)
+    have = {r["package_id"] for r in rows}
+    todo = [v for v in versions if v["package_id"] not in have]
+    todo.sort(key=lambda v: v["date_issued"], reverse=True)
+    todo = todo[:max_requests]
+
+    def fetch(v):
+        x = get_text(f"{GOVINFO}/packages/{v['package_id']}/mods", key)
+        m = re.search(r"<dateIngested[^>]*>([^<]+)</dateIngested>", x or "")
+        return {"package_id": v["package_id"], "date_ingested": m.group(1).strip()[:10] if m else ""}
+
+    done = 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+        for row in pool.map(fetch, todo):
+            rows.append(row)
+            done += 1
+            if done % 200 == 0 or done == len(todo):
+                write_csv(path, rows, INGEST_FIELDS)
+                print(f"ingest: {done}/{len(todo)} fetched, {sum(1 for r in rows if not r['date_ingested'])} without a date",
+                      file=sys.stderr)
+    write_csv(path, rows, INGEST_FIELDS)
+    print(f"ingest: {len(todo)} fetched, {len(versions) - len(rows)} still missing", file=sys.stderr)
+    return rows
+
+
 SUMMARY_FIELDS = ["congress", "bill_type", "number", "version_code", "action_desc", "action_date",
                   "update_date", "current_chapter", "last_summary_update_date"]
 
@@ -190,9 +251,10 @@ def main():
     ap.add_argument("--api-key")
     ap.add_argument("--max-version-pages", type=int, default=3, help="GovInfo listing pages of 500")
     ap.add_argument("--max-page-lookups", type=int, default=20, help="GovInfo per-version page-count calls")
+    ap.add_argument("--max-ingest-lookups", type=int, default=20, help="GovInfo per-version MODS calls (dateIngested)")
     ap.add_argument("--max-summary-requests", type=int, default=4, help="Congress.gov summary list pages")
     ap.add_argument("--summary-page-size", type=int, default=250)
-    ap.add_argument("--skip", nargs="*", default=[], choices=["versions", "pages", "summaries"])
+    ap.add_argument("--skip", nargs="*", default=[], choices=["versions", "pages", "ingest", "summaries"])
     a = ap.parse_args()
     key = load_key(a.api_key)
     print(f"key: {'DEMO_KEY (slow, capped)' if key == 'DEMO_KEY' else 'real key'}", file=sys.stderr)
@@ -202,6 +264,8 @@ def main():
         versions = collect_versions(a.data_dir, key, a.congress, a.since, a.max_version_pages)
     if "pages" not in a.skip:
         collect_pages(a.data_dir, key, versions, a.max_page_lookups)
+    if "ingest" not in a.skip:
+        collect_ingest(a.data_dir, key, versions, a.max_ingest_lookups)
     if "summaries" not in a.skip:
         collect_summaries(a.data_dir, key, a.congress, a.since, a.max_summary_requests, a.summary_page_size)
 
