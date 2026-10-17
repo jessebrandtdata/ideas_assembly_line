@@ -1,4 +1,9 @@
-import { headerMetrics, binLags, histogramMax, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativePages, longestLags, oldestWaiting, billLabel, billUrl, ordinal, exportName, toCsv } from './metrics.js';
+// Classic script, not an ES module: the page must open from disk, and Chromium blocks module
+// scripts on file:// pages. index.html loads metrics.js and ../data/delays.js before this file,
+// so both globals below exist by the time it runs.
+'use strict';
+
+const { headerMetrics, binLags, histogramMax, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativePages, longestLags, oldestWaiting, billLabel, billUrl, ordinal, exportName, toCsv } = window.BillDelayMetrics;
 
 const BLUE = '#104378', RED = '#b2182b', INK = '#1f2933', MUTED = '#6b7280';
 let fmt; // assigned in main() once d3 is known to be loaded
@@ -343,7 +348,7 @@ function renderLists(records) {
     ['Days waiting', (r) => fmt(r.days_waiting), 'num'], pages, title]);
 }
 
-export function render(state) {
+function render(state) {
   renderControls(state);
   const unranged = filterRecords(state.records, { stage: state.stage, type: state.type, range: null });
   const records = filterRecords(state.records, state);
@@ -364,14 +369,15 @@ export function render(state) {
     [uncounted ? `${fmt(uncounted)} versions not yet page-counted.` : '', (state.stage === 'all' ? 'Pages of every text version; summaries at any stage.' : `Pages of ${state.stage} text versions.`)].filter(Boolean).join(' '));
 }
 
-async function main() {
+function main() {
   try {
     if (typeof d3 === 'undefined') throw new Error('d3 failed to load');
     fmt = d3.format(',');
-    const res = await fetch('../data/delays.json');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const doc = await res.json();
-    if (!Array.isArray(doc.records)) throw new Error('delays.json has no records array');
+    // The data arrives as window.BILL_DELAYS from ../data/delays.js, which delays.py writes next to
+    // delays.json so the page can load it from disk (fetch() is blocked on file:// pages).
+    const doc = window.BILL_DELAYS;
+    if (!doc) throw new Error('data/delays.js not found');
+    if (!Array.isArray(doc.records)) throw new Error('delays.js has no records array');
     state.records = doc.records;
     congress = doc.congress;
     asOf = doc.as_of;
@@ -388,7 +394,7 @@ async function main() {
     cards.innerHTML = '';
     const p = document.createElement('p');
     p.className = 'error';
-    p.textContent = `Could not load data/delays.json (${err.message}). Run delays.py first.`;
+    p.textContent = `Could not load the data (${err.message}). Run delays.py first.`;
     cards.appendChild(p);
   }
 }
