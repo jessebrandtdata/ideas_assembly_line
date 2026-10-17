@@ -149,10 +149,6 @@ test('headerMetrics: summarized + waiting === bills; a bill summarized at one st
   assert.equal(m.summarized + m.waiting, m.bills);
 });
 
-test('binLags floors a negative lag into the first bin', () => {
-  const bins = binLags([rec({ lag_days: -3 }), rec({ lag_days: 40 })], 30);
-  assert.deepEqual(bins, [{ from: 0, to: 30, count: 1 }, { from: 30, to: 60, count: 1 }]);
-});
 
 test('cumulativePages over a stage-filtered set counts only that stage, issued and summarized', () => {
   const rs = [
@@ -287,4 +283,10 @@ test('toCsv quotes per RFC 4180 and ends rows with CRLF', () => {
   assert.equal(toCsv([], ['a', 'b']), 'a,b');
   const title = 'Act to amend "Title 5", relating to pay, and for other purposes';
   assert.equal(toCsv([{ title }], ['title']), `title\r\n"Act to amend ""Title 5"", relating to pay, and for other purposes"`);
+});
+
+test('binLags leaves negative lags out instead of folding them into the first bin', () => {
+  const bins = binLags([rec({ lag_days: -40 }), rec({ lag_days: 3 }), rec({ lag_days: 35 })], 30);
+  assert.equal(bins.length, 2);
+  assert.deepEqual(bins.map((b) => b.count), [1, 1]);
 });

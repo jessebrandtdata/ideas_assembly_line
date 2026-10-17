@@ -14,7 +14,7 @@ class DelaysJson(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp = Path(tempfile.mkdtemp())
-        for name in ("versions.csv", "pages.csv", "summaries.csv"):
+        for name in ("versions.csv", "pages.csv", "summaries.csv", "ingest.csv"):
             shutil.copy(HERE / "fixture" / name, cls.tmp / name)
         subprocess.run([sys.executable, str(PROTO / "delays.py"), "--data-dir", str(cls.tmp),
                         "--as-of", "2026-10-14"], check=True, capture_output=True)
@@ -37,13 +37,15 @@ class DelaysJson(unittest.TestCase):
                                 ("hr", "10779", "introduced"), ("hr", "10786", "introduced")])
 
     def test_later_edition_of_a_staged_stage_has_no_stage(self):
-        r = next(r for r in self.records if r["text_date"] == "2025-07-02")
+        r = next(r for r in self.records if r["printed_date"] == "2025-07-02")
+        self.assertEqual(r["text_date"], "2025-07-03")  # GovInfo ingest date, not the printed date
         self.assertIsNone(r["stage"])
         self.assertIsNone(r["lag_days"])
         self.assertEqual(sum(1 for r in self.records if r["stage"] == "passed"), 1)
 
     def test_unmapped_version_keeps_pages_and_has_no_stage(self):
-        r = next(r for r in self.records if r["stage"] is None and r["text_date"] == "2025-05-23")
+        r = next(r for r in self.records if r["stage"] is None and r["printed_date"] == "2025-05-23")
+        self.assertEqual(r["text_date"], "2025-05-27")
         self.assertEqual(r["pages"], 900)
         self.assertIsNone(r["lag_days"])
 
@@ -53,12 +55,22 @@ class DelaysJson(unittest.TestCase):
 
     def test_summarized_record(self):
         r = next(r for r in self.records if r["number"] == "1" and r["stage"] == "reported")
-        self.assertEqual(r["text_date"], "2025-05-20")
+        self.assertEqual(r["printed_date"], "2025-05-20")  # the date printed on the bill
+        self.assertEqual(r["text_date"], "2025-05-21")  # the day GovInfo took the text in (ingest.csv)
         self.assertEqual(r["summary_date"], "2025-09-22")
-        self.assertEqual(r["lag_days"], 125)
+        self.assertEqual(r["lag_days"], 124)
         self.assertEqual(r["pages"], 1118)
         self.assertTrue(r["reported"])
         self.assertEqual(r["title"], "One Big Beautiful Bill Act")
+
+    def test_summary_date_is_last_summary_update_not_record_update(self):
+        # fixture: hr1 Passed House has updateDate 2025-06-16 and lastSummaryUpdateDate 2025-06-10
+        r = next(r for r in self.records if r["number"] == "1" and r["stage"] == "passed")
+        self.assertEqual(r["summary_date"], "2025-06-10")
+        self.assertEqual(r["lag_days"], 18)  # from the eh ingest date 2025-05-23
+
+    def test_envelope_counts_versions_without_ingest_date(self):
+        self.assertEqual(self.doc["versions_without_ingest_date"], 0)
 
     def test_waiting_record_has_nulls(self):
         r = next(r for r in self.records if r["number"] == "10779")

@@ -1,6 +1,6 @@
 {
  "as_of": "2026-10-15",
- "computed_at": "2026-10-15T18:36:33+00:00",
+ "computed_at": "2026-10-17T03:52:06+00:00",
  "congress": "119",
  "bills_with_text": 16873,
  "text_versions": 19982,
@@ -16,37 +16,37 @@
  },
  "delay_days": {
   "n": 5290,
-  "mean": 160.9,
-  "median": 101.0,
-  "max": 626
+  "mean": 142.9,
+  "median": 82.0,
+  "max": 601
  },
  "by_stage": {
   "introduced": {
    "n": 4779,
-   "mean": 167.1,
-   "median": 106,
-   "max": 626,
-   "min": 1
+   "mean": 147.3,
+   "median": 85,
+   "max": 601,
+   "min": -323
   },
   "reported": {
    "n": 337,
-   "mean": 71.4,
-   "median": 41,
-   "max": 454,
-   "min": 1
+   "mean": 70.5,
+   "median": 40,
+   "max": 452,
+   "min": 0
   },
   "passed": {
    "n": 77,
-   "mean": 104.9,
-   "median": 68,
-   "max": 392,
-   "min": 1
+   "mean": 103.6,
+   "median": 67,
+   "max": 391,
+   "min": 0
   },
   "enrolled": {
    "n": 97,
-   "mean": 208.8,
-   "median": 187,
-   "max": 514,
+   "mean": 209.3,
+   "median": 186,
+   "max": 515,
    "min": 4
   }
  },
@@ -54,240 +54,240 @@
   {
    "from": 0,
    "to": 7,
-   "count": 80
+   "count": 387
   },
   {
    "from": 7,
    "to": 14,
-   "count": 129
+   "count": 324
   },
   {
    "from": 14,
    "to": 30,
-   "count": 344
+   "count": 559
   },
   {
    "from": 30,
    "to": 60,
-   "count": 884
+   "count": 682
   },
   {
    "from": 60,
    "to": 90,
-   "count": 653
+   "count": 493
   },
   {
    "from": 90,
    "to": 180,
-   "count": 1038
+   "count": 785
   },
   {
    "from": 180,
    "to": 365,
-   "count": 1005
+   "count": 1015
   },
   {
    "from": 365,
    "to": null,
-   "count": 646
+   "count": 528
   }
  ],
  "awaiting_histogram": [
   {
    "from": 0,
    "to": 7,
-   "count": 29
+   "count": 68
   },
   {
    "from": 7,
    "to": 14,
-   "count": 42
+   "count": 310
   },
   {
    "from": 14,
    "to": 30,
-   "count": 564
+   "count": 330
   },
   {
    "from": 30,
    "to": 60,
-   "count": 290
+   "count": 264
   },
   {
    "from": 60,
    "to": 90,
-   "count": 655
+   "count": 758
   },
   {
    "from": 90,
    "to": 180,
-   "count": 1944
+   "count": 1955
   },
   {
    "from": 180,
    "to": 365,
-   "count": 3465
+   "count": 3419
   },
   {
    "from": 365,
    "to": null,
-   "count": 5000
+   "count": 4885
   }
  ],
  "monthly_introduced": [
   {
    "month": "2025-01",
-   "summarized": 1129,
-   "awaiting": 131,
-   "median_lag": 63,
-   "p90_lag": 192
+   "summarized": 176,
+   "awaiting": 8,
+   "median_lag": 12.0,
+   "p90_lag": 42
   },
   {
    "month": "2025-02",
-   "summarized": 950,
-   "awaiting": 418,
-   "median_lag": 128.0,
-   "p90_lag": 435
+   "summarized": 943,
+   "awaiting": 121,
+   "median_lag": 46,
+   "p90_lag": 204
   },
   {
    "month": "2025-03",
-   "summarized": 567,
-   "awaiting": 639,
-   "median_lag": 173,
-   "p90_lag": 470
+   "summarized": 1241,
+   "awaiting": 705,
+   "median_lag": 111,
+   "p90_lag": 410
   },
   {
    "month": "2025-04",
-   "summarized": 320,
-   "awaiting": 625,
-   "median_lag": 314.0,
-   "p90_lag": 509
+   "summarized": 475,
+   "awaiting": 714,
+   "median_lag": 288,
+   "p90_lag": 474
   },
   {
    "month": "2025-05",
-   "summarized": 239,
-   "awaiting": 680,
-   "median_lag": 295,
-   "p90_lag": 483
+   "summarized": 298,
+   "awaiting": 767,
+   "median_lag": 276.5,
+   "p90_lag": 482
   },
   {
    "month": "2025-06",
-   "summarized": 198,
-   "awaiting": 701,
-   "median_lag": 286.0,
-   "p90_lag": 425
+   "summarized": 160,
+   "awaiting": 592,
+   "median_lag": 275.0,
+   "p90_lag": 412
   },
   {
    "month": "2025-07",
-   "summarized": 210,
-   "awaiting": 786,
-   "median_lag": 257.0,
-   "p90_lag": 368
+   "summarized": 195,
+   "awaiting": 625,
+   "median_lag": 258,
+   "p90_lag": 385
   },
   {
    "month": "2025-08",
-   "summarized": 58,
-   "awaiting": 240,
-   "median_lag": 243.0,
-   "p90_lag": 356
+   "summarized": 170,
+   "awaiting": 648,
+   "median_lag": 238.0,
+   "p90_lag": 349
   },
   {
    "month": "2025-09",
-   "summarized": 206,
-   "awaiting": 680,
-   "median_lag": 192.5,
-   "p90_lag": 345
+   "summarized": 129,
+   "awaiting": 412,
+   "median_lag": 189,
+   "p90_lag": 356
   },
   {
    "month": "2025-10",
-   "summarized": 106,
-   "awaiting": 265,
-   "median_lag": 53.5,
-   "p90_lag": 289
+   "summarized": 177,
+   "awaiting": 513,
+   "median_lag": 117,
+   "p90_lag": 293
   },
   {
    "month": "2025-11",
-   "summarized": 106,
-   "awaiting": 512,
-   "median_lag": 136.5,
-   "p90_lag": 261
+   "summarized": 88,
+   "awaiting": 332,
+   "median_lag": 126.5,
+   "p90_lag": 244
   },
   {
    "month": "2025-12",
-   "summarized": 109,
-   "awaiting": 797,
-   "median_lag": 118,
-   "p90_lag": 286
+   "summarized": 98,
+   "awaiting": 570,
+   "median_lag": 96.5,
+   "p90_lag": 274
   },
   {
    "month": "2026-01",
-   "summarized": 61,
-   "awaiting": 495,
-   "median_lag": 90,
-   "p90_lag": 245
+   "summarized": 73,
+   "awaiting": 572,
+   "median_lag": 92,
+   "p90_lag": 252
   },
   {
    "month": "2026-02",
-   "summarized": 88,
-   "awaiting": 558,
-   "median_lag": 59.0,
-   "p90_lag": 202
+   "summarized": 92,
+   "awaiting": 708,
+   "median_lag": 60.5,
+   "p90_lag": 217
   },
   {
    "month": "2026-03",
-   "summarized": 109,
-   "awaiting": 682,
-   "median_lag": 41,
-   "p90_lag": 159
+   "summarized": 100,
+   "awaiting": 603,
+   "median_lag": 26.0,
+   "p90_lag": 170
   },
   {
    "month": "2026-04",
-   "summarized": 71,
-   "awaiting": 649,
-   "median_lag": 27,
-   "p90_lag": 105
+   "summarized": 89,
+   "awaiting": 684,
+   "median_lag": 21,
+   "p90_lag": 112
   },
   {
    "month": "2026-05",
-   "summarized": 52,
-   "awaiting": 560,
-   "median_lag": 44.5,
-   "p90_lag": 125
+   "summarized": 50,
+   "awaiting": 549,
+   "median_lag": 30.5,
+   "p90_lag": 117
   },
   {
    "month": "2026-06",
-   "summarized": 54,
-   "awaiting": 737,
-   "median_lag": 28.0,
+   "summarized": 71,
+   "awaiting": 838,
+   "median_lag": 24,
    "p90_lag": 94
   },
   {
    "month": "2026-07",
-   "summarized": 72,
-   "awaiting": 644,
-   "median_lag": 46.5,
-   "p90_lag": 75
+   "summarized": 65,
+   "awaiting": 705,
+   "median_lag": 33,
+   "p90_lag": 76
   },
   {
    "month": "2026-08",
-   "summarized": 30,
-   "awaiting": 351,
-   "median_lag": 23.0,
+   "summarized": 39,
+   "awaiting": 430,
+   "median_lag": 22,
    "p90_lag": 58
   },
   {
    "month": "2026-09",
-   "summarized": 39,
-   "awaiting": 690,
-   "median_lag": 14,
-   "p90_lag": 28
+   "summarized": 37,
+   "awaiting": 515,
+   "median_lag": 8,
+   "p90_lag": 27
   },
   {
    "month": "2026-10",
-   "summarized": 5,
-   "awaiting": 149,
-   "median_lag": 13,
-   "p90_lag": 13
+   "summarized": 13,
+   "awaiting": 378,
+   "median_lag": 7,
+   "p90_lag": 12
   }
  ],
  "summaries_collected": 5337,
