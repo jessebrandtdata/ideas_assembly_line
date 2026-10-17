@@ -64,7 +64,13 @@ figure { margin: 0 0 24px; display: flex; flex-direction: column; }
 </div>
 <div class="caveat">Lag is measured to the summary's last-update date, the only date the Congress.gov API exposes; a summary revised later reads slower than it was. The text date is the date printed on the version. "Waiting" means no summary at that stage appears in the data collected.</div>
 <div id="tooltip" class="tooltip"></div>
+<!-- Classic scripts in dependency order, not ES modules: this page opens from disk (file://), where
+     Chromium blocks module scripts and fetch(). metrics.js publishes window.BillDelayMetrics,
+     ../data/delays.js (written by delays.py beside delays.json) publishes window.BILL_DELAYS, and
+     dashboard.js reads both. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
-<script type="module" src="dashboard.js"></script>
+<script src="metrics.js"></script>
+<script src="../data/delays.js"></script>
+<script src="dashboard.js"></script>
 </body>
 </html>
