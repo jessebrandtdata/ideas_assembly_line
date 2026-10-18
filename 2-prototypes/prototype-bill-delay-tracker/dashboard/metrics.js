@@ -163,12 +163,12 @@
       .slice(0, n);
   }
 
-  /** Download filename (no extension): bill-delay-<kind>-<stage>-<type>[-<from>_<to>]-<asOf>.
+  /** Download filename (no extension): bill-delay-<kind>-<type>[-<from>_<to>]-<asOf>.
    *  The range part appears only for a usable range (an inverted one is ignored, as in filterRecords); an open side reads "start"/"end". */
-  function exportName(kind, { stage = 'all', type = 'all', range = null } = {}, asOf) {
+  function exportName(kind, { type = 'all', range = null } = {}, asOf) {
     const from = range?.from || null, to = range?.to || null;
     const ranged = (from || to) && !(from && to && from > to);
-    return ['bill-delay', kind, stage, type, ...(ranged ? [`${from || 'start'}_${to || 'end'}`] : []), asOf].join('-');
+    return ['bill-delay', kind, type, ...(ranged ? [`${from || 'start'}_${to || 'end'}`] : []), asOf].join('-');
   }
 
   /** RFC 4180 CSV: header row of the column keys, then one row per record; fields with a comma, quote, CR or LF are quoted

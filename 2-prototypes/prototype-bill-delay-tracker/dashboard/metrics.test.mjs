@@ -268,13 +268,13 @@ test('longestLags and oldestWaiting with no limit return every qualifying record
 });
 
 test('exportName builds the filename stem, with the range only when it is usable', () => {
-  const st = { stage: 'all', type: 'all', range: { from: null, to: null } };
-  assert.equal(exportName('histogram', st, '2026-10-15'), 'bill-delay-histogram-all-all-2026-10-15');
-  assert.equal(exportName('timeseries', { ...st, stage: 'enrolled', type: 'hr', range: { from: '2025-01-01', to: '2025-03-31' } }, '2026-10-15'),
-    'bill-delay-timeseries-enrolled-hr-2025-01-01_2025-03-31-2026-10-15');
-  assert.equal(exportName('cumulative', { ...st, range: { from: '2025-02-01', to: null } }, '2026-10-15'), 'bill-delay-cumulative-all-all-2025-02-01_end-2026-10-15');
-  assert.equal(exportName('cumulative', { ...st, range: { from: '2025-05-01', to: '2025-01-01' } }, '2026-10-15'), 'bill-delay-cumulative-all-all-2026-10-15'); // inverted = none
-  assert.equal(exportName('longest-lags', { stage: 'all', type: 's' }, '2026-10-15'), 'bill-delay-longest-lags-all-s-2026-10-15');
+  const st = { type: 'all', range: { from: null, to: null } };
+  assert.equal(exportName('histogram', st, '2026-10-15'), 'bill-delay-histogram-all-2026-10-15');
+  assert.equal(exportName('timeseries', { ...st, type: 'hr', range: { from: '2025-01-01', to: '2025-03-31' } }, '2026-10-15'),
+    'bill-delay-timeseries-hr-2025-01-01_2025-03-31-2026-10-15');
+  assert.equal(exportName('cumulative', { ...st, range: { from: '2025-02-01', to: null } }, '2026-10-15'), 'bill-delay-cumulative-all-2025-02-01_end-2026-10-15');
+  assert.equal(exportName('cumulative', { ...st, range: { from: '2025-05-01', to: '2025-01-01' } }, '2026-10-15'), 'bill-delay-cumulative-all-2026-10-15'); // inverted = none
+  assert.equal(exportName('longest-lags', { type: 's' }, '2026-10-15'), 'bill-delay-longest-lags-s-2026-10-15');
 });
 
 test('toCsv quotes per RFC 4180 and ends rows with CRLF', () => {
