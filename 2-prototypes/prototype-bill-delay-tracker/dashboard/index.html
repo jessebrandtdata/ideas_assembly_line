@@ -45,14 +45,13 @@ figure { margin: 0 0 24px; display: flex; flex-direction: column; }
 <h1>Bill Delay Tracker</h1>
 <p id="subtitle">Lag between a bill text version appearing on GovInfo and its CRS summary on Congress.gov.</p>
 <div id="controls" class="controls"></div>
-<p id="policy" class="caveat" hidden></p>
 <div id="cards" class="cards"></div>
 <p id="pre-text" class="presumm"></p>
 <figure id="histogram">
   <div id="hist-chart"></div>
   <div class="strip">
     <label class="slider">Bin width <input type="range" id="bin-width" min="7" max="90" step="1" value="30" aria-label="Bin width in days"> <span id="bin-width-label">30-day bins</span></label>
-    <label class="check"><input type="checkbox" id="include-waiting" checked><span id="include-waiting-label">Include bills still waiting</span></label>
+    <label class="check"><input type="checkbox" id="include-waiting" checked>Include bills still waiting</label>
   </div>
   <div class="export-row" data-figure="histogram" data-label="histogram"></div>
 </figure>
@@ -61,9 +60,9 @@ figure { margin: 0 0 24px; display: flex; flex-direction: column; }
 <figure id="cumulative-pages"><div class="export-row" data-figure="cumulative-pages" data-label="cumulative pages"></div><div class="chart"></div></figure>
 <div class="lists">
 <section id="longest-lags"><div class="heading-row"><h2>Longest lags</h2><button type="button" data-csv="longest-lags" aria-label="Download longest lags as CSV">Download CSV</button></div><div class="table-wrap"></div></section>
-<section id="oldest-waiting"><div class="heading-row"><h2 id="oldest-heading">Oldest bills still waiting</h2><button type="button" data-csv="oldest-waiting" aria-label="Download oldest waiting bills as CSV">Download CSV</button></div><div class="table-wrap"></div></section>
+<section id="oldest-waiting"><div class="heading-row"><h2>Oldest bills still waiting</h2><button type="button" data-csv="oldest-waiting" aria-label="Download oldest waiting bills as CSV">Download CSV</button></div><div class="table-wrap"></div></section>
 </div>
-<div class="caveat">The text date is the day GovInfo took the version in (the MODS record's dateIngested), not the date printed on the bill, which runs days to weeks earlier; the CSV exports carry both. The summary date is what the Congress.gov API documents as the date the summary was last updated; it exposes no first-publication date, so a summary revised later reads slower than it was. CRS writes summaries for introduced versions only in the 119th Congress, so lag and "waiting" describe a queue at the introduced stage alone; the later stages show the exceptions CRS did write.</div>
+<div class="caveat">This page measures the introduced stage: CRS writes summaries for introduced versions only in the 119th Congress ("CRS is not writing bill summaries for subsequent versions of measures as they move through the legislative process", Congress.gov help, Bill Summaries). The <span id="exceptions">–</span> later-stage summaries CRS wrote anyway are left out here and kept in the data under their stage. The text date is the day GovInfo took the version in (the MODS record's dateIngested), not the date printed on the bill, which runs days to weeks earlier; the CSV exports carry both. The summary date is what the Congress.gov API documents as the date the summary was last updated; it exposes no first-publication date, so a summary revised later reads slower than it was.</div>
 <div id="tooltip" class="tooltip"></div>
 <!-- Classic scripts in dependency order, not ES modules: this page opens from disk (file://), where
      Chromium blocks module scripts and fetch(). metrics.js publishes window.BillDelayMetrics,
