@@ -4,7 +4,7 @@
 
 ## What this demonstrates
 
-Two stdlib-only Python scripts collect bill text versions from GovInfo and CRS summaries from the Congress.gov API, join them by bill and stage, and compute lag statistics; a d3 dashboard page, opened straight from disk, charts the result. The chain runs end to end on a bundled fixture without any API access.
+Python scripts collect bill text versions and CRS summaries (from Civic Tech DC's spicy-regs warehouse, or from the GovInfo and Congress.gov APIs), join them by bill and stage, and compute lag statistics; a d3 dashboard page, opened straight from disk, charts the result. The chain runs end to end on a bundled fixture without any API access.
 
 ## The fictionalized use case
 
@@ -12,11 +12,12 @@ The bundled fixture (`prototype-bill-delay-tracker/tests/fixture/`) is a four-ro
 
 ## What's in this prototype
 
-Python 3.12, no dependencies. In [`prototype-bill-delay-tracker/`](prototype-bill-delay-tracker/):
+Python 3.12; `collect_warehouse.py` needs `duckdb` to read Parquet, everything else is stdlib. In [`prototype-bill-delay-tracker/`](prototype-bill-delay-tracker/):
 
 | Script | Does |
 | --- | --- |
-| `collect.py` | Sweeps the GovInfo `BILLS` collection listing (one text version per row, 500 per request), fetches page counts from GovInfo package summaries and the ingest date from each version's MODS record (one call per version each, capped and cached), and sweeps `api.congress.gov/v3/summaries/{congress}/{type}` for summary versions. Incremental and resumable: every page is saved as it lands. |
+| `collect_warehouse.py` | Reads the current bill-family generation of the spicy-regs warehouse (`data.spicygov.ai`, pointer `publication.v2.json`): `bill_versions` joined to `congress_bills` for titles becomes `versions.csv`, and `bill_publisher_summaries`, which keeps every dated revision of a summary, becomes `summaries.csv` with the earliest retained revision as the publication date `delays.py` measures to. No API key, no rate limit; `warehouse.json` records the generation read. |
+| `collect.py` | The original API collectors. Sweeps the GovInfo `BILLS` collection listing (one text version per row, 500 per request), fetches page counts from GovInfo package summaries and the ingest date from each version's MODS record (one call per version each, capped and cached), and sweeps `api.congress.gov/v3/summaries/{congress}/{type}` for summary versions. Incremental and resumable: every page is saved as it lands. |
 | `delays.py` | Maps text versions and summaries onto four stages (introduced, reported, passed, enrolled), takes the earliest of each per bill, measures lag from the day GovInfo took the text in (`ingest.csv`; the date printed on the bill rides along as `printed_date`) to the date the API says the summary was last updated, and writes `delays.csv`, `awaiting.csv` (introduced bills with no introduced-stage summary), `stats.json` (counts, mean / median / max, per-stage stats, histograms) and `delays.json`, one record per staged text version, the dashboard's input. The same document is written again as `delays.js` (a script assigning one global) so the dashboard can load it from disk, where browsers block `fetch()` of local files. |
 | `dashboard/` | The view of the data, `index.html` opened from disk or served. It measures the introduced stage only, the one CRS is summarizing in the 119th Congress and the only one where "waiting" means a queue; proposal IV.2 asks for no breakdown by stage, and the later-stage summaries CRS wrote anyway are counted in the page's caveat and kept in the data. Header metrics (the proposal's four: pages, bills summarized, bills reported by committee, mean / median / max lag), lag histogram (bin-width slider, with or without bills still waiting), bill-type and date-range filters, monthly summarized-vs-waiting shares, cumulative bills and cumulative pages (issued vs summarized), two top-10 tables, PNG / SVG / CSV exports. Hand-rolled d3 v7 (from cdnjs) in the Congressional Tech site's colors so it can move into the Astro site; pure computations in `metrics.js` under `node --test`. |
 | `keys.py` | Key lookup in the same order as the Congressional Tech repo's `congress_shared.auth`: `--api-key`, `DATA_GOV_API_KEY`, `~/.data.gov.api.key`; falls back to `DEMO_KEY`. |
@@ -33,14 +34,17 @@ cd ideas_assembly_line/2-prototypes/prototype-bill-delay-tracker
 python3 delays.py --data-dir tests/fixture --as-of 2026-10-14
 node --test dashboard/metrics.test.mjs && python3 -m unittest discover -s tests
 
-# 2. Live data (free key from https://api.congress.gov/sign-up/, one key covers GovInfo too)
+# 2. Live data from the warehouse (no key), then page counts and ingest dates from GovInfo
+#    (free key from https://api.congress.gov/sign-up/, one key covers GovInfo too)
+python3 -m pip install duckdb
+python3 collect_warehouse.py --congress 119
 echo YOUR_KEY > ~/.data.gov.api.key
-python3 collect.py --congress 119 --max-version-pages 60 --max-page-lookups 200 --max-ingest-lookups 200 --max-summary-requests 60
+python3 collect.py --skip versions summaries --max-page-lookups 200 --max-ingest-lookups 200
 python3 delays.py
 # open dashboard/index.html in a browser (no server needed; or serve the folder and open /dashboard/)
 ```
 
-`collect.py --help` lists the caps. Rerunning only fetches what is new.
+`collect.py --help` lists the caps. Rerunning only fetches what is new; `collect_warehouse.py` rewrites its two files from the current generation each run. The original all-API path (`python3 collect.py --congress 119 --max-version-pages 60 --max-summary-requests 60 ...`) still works.
 
 ## Live result, snapshot of 2026-10-15
 
