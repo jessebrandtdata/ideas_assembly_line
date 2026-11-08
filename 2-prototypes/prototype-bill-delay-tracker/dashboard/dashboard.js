@@ -5,7 +5,9 @@
 
 const { headerMetrics, binLags, histogramMax, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativePages, longestLags, oldestWaiting, billLabel, billUrl, ordinal, exportName, toCsv } = window.BillDelayMetrics;
 
-const BLUE = '#104378', RED = '#b2182b', INK = '#1f2933', MUTED = '#6b7280';
+// The Congressional Tech site's coverage colors (apps/site Dashboard.tsx): "has it" is the primary
+// blue, "missing it" is the gold. Here a bill that has its summary is blue, one still waiting is gold.
+const BLUE = '#104378', GOLD = '#eec05e', INK = '#1f2933', MUTED = '#6b7280';
 let fmt; // assigned in main() once d3 is known to be loaded
 const day = (v) => (v === null ? '–' : `${Math.round(v)}`);
 
@@ -95,24 +97,24 @@ function renderHistogram(records, state) {
       .attr('x', (_, i) => x(i) + x.bandwidth() / 2).attr('y', (b) => y(b.count) - 4)
       .attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK).text((b) => (b.count ? fmt(b.count) : ''));
   }
-  // the censoring, visible: one red bar for what has no summary yet, on the same scale as the bins
+  // the censoring, visible: one gold bar for what has no summary yet, on the same scale as the bins
   if (includeWaiting) {
     const waitText = `still waiting: ${fmt(m.waiting)}`;
     const wx = x('waiting');
     svg.append('rect').attr('id', 'waiting-bar').attr('x', wx).attr('y', y(m.waiting)).attr('width', x.bandwidth()).attr('height', y(0) - y(m.waiting))
-      .attr('fill', RED).attr('rx', 2).on('mousemove', (event) => {
+      .attr('fill', GOLD).attr('rx', 2).on('mousemove', (event) => {
         d3.select('#tooltip').style('display', 'block').style('left', `${event.pageX + 12}px`).style('top', `${event.pageY - 10}px`).text(waitText);
       }).on('mouseleave', () => d3.select('#tooltip').style('display', 'none')).append('title').text(waitText);
-    svg.append('text').attr('x', wx + x.bandwidth()).attr('y', y(m.waiting) - 4).attr('font-size', 11).attr('text-anchor', 'end').attr('fill', RED)
+    svg.append('text').attr('x', wx + x.bandwidth()).attr('y', y(m.waiting) - 4).attr('font-size', 11).attr('text-anchor', 'end').attr('fill', INK)
       .text(fmt(m.waiting));
   }
   // median and mean rules sit at their position inside the band scale
   const pos = (v) => { const i = Math.min(Math.floor(v / width), bins.length - 1); return x(i) + x.bandwidth() * Math.min(1, (v - i * width) / width); };
   for (const [v, label] of [[m.lagMedian, 'median'], [m.lagMean, 'mean']]) {
     svg.append('line').attr('x1', pos(v)).attr('x2', pos(v)).attr('y1', top - 6).attr('y2', H - bottom)
-      .attr('stroke', RED).attr('stroke-width', 1.5).attr('stroke-dasharray', label === 'mean' ? '4 3' : null);
+      .attr('stroke', INK).attr('stroke-width', 1.5).attr('stroke-dasharray', label === 'mean' ? '4 3' : null);
     const crowded = label === 'mean' && Math.abs(pos(m.lagMean) - pos(m.lagMedian)) < 60;
-    svg.append('text').attr('x', pos(v) - 4).attr('y', crowded ? top + 4 : top - 10).attr('font-size', 11).attr('text-anchor', 'end').attr('fill', RED)
+    svg.append('text').attr('x', pos(v) - 4).attr('y', crowded ? top + 4 : top - 10).attr('font-size', 11).attr('text-anchor', 'end').attr('fill', INK)
       .text(`${label} ${Math.round(v)}d`);
   }
 }
@@ -193,8 +195,13 @@ function renderTimeseries(records, state) {
   const yShare = d3.scaleLinear().domain([0, 1]).range([topY + topH, topY]);
   svg.append('g').attr('transform', `translate(${left},0)`).call(d3.axisLeft(yShare).ticks(4).tickFormat(d3.format('.0%'))).call((g) => g.select('.domain').remove());
   svg.append('text').attr('transform', `translate(14,${topY + topH / 2}) rotate(-90)`).attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK).text('Share of that month\'s bills');
+  const legend = svg.append('g').attr('transform', `translate(${W - right - 190},6)`);
+  for (const [i, [color, label]] of [[BLUE, 'has a summary'], [GOLD, 'still waiting']].entries()) {
+    legend.append('rect').attr('x', i * 100).attr('y', 0).attr('width', 10).attr('height', 10).attr('rx', 2).attr('fill', color);
+    legend.append('text').attr('x', i * 100 + 14).attr('y', 9).attr('font-size', 11).attr('fill', INK).text(label);
+  }
   const bars = svg.append('g').selectAll('g').data(series).join('g');
-  bars.append('rect').attr('x', (s) => x(s.month)).attr('width', x.bandwidth()).attr('fill', RED)
+  bars.append('rect').attr('x', (s) => x(s.month)).attr('width', x.bandwidth()).attr('fill', GOLD)
     .attr('y', topY).attr('height', (s) => yShare(1 - s.waiting / (s.summarized + s.waiting || 1)) - topY);
   bars.append('rect').attr('x', (s) => x(s.month)).attr('width', x.bandwidth()).attr('fill', BLUE)
     .attr('y', (s) => yShare(s.summarized / (s.summarized + s.waiting || 1))).attr('height', (s) => topY + topH - yShare(s.summarized / (s.summarized + s.waiting || 1)));
@@ -217,7 +224,7 @@ function renderCumulative(target, series, keys, labels, title, yLabel, note = ''
   svg.append('text').attr('transform', `translate(14,${(top + H - bottom) / 2}) rotate(-90)`).attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK).text(yLabel);
   const line = (key) => d3.line().curve(d3.curveStepAfter).x((s) => x(parse(s.date))).y((s) => y(s[key]));
   const gap = d3.area().curve(d3.curveStepAfter).x((s) => x(parse(s.date))).y0((s) => y(s[keys[1]])).y1((s) => y(s[keys[0]]));
-  svg.append('path').datum(series).attr('d', gap).attr('fill', RED).attr('fill-opacity', 0.12);
+  svg.append('path').datum(series).attr('d', gap).attr('fill', GOLD).attr('fill-opacity', 0.45);
   svg.append('path').datum(series).attr('d', line(keys[0])).attr('fill', 'none').attr('stroke', INK).attr('stroke-width', 2);
   svg.append('path').datum(series).attr('d', line(keys[1])).attr('fill', 'none').attr('stroke', BLUE).attr('stroke-width', 2);
   const last = series[series.length - 1];
