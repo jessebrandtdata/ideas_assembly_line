@@ -324,7 +324,9 @@ function renderCumulative(target, series, keys, labels, title, yLabel, note = ''
   const svg = fig.append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', title);
   svg.append('text').attr('x', left).attr('y', 18).attr('font-size', 14).attr('font-weight', 600).attr('fill', INK).text(title);
   if (note) svg.append('text').attr('x', left).attr('y', 36).attr('font-size', 12).attr('fill', MUTED).text(note);
-  svg.append('g').attr('transform', `translate(${left},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(fmt)).call((g) => g.select('.domain').remove());
+  // millions of characters do not fit the left margin as 150,000,000: short form (150M) once the axis reaches a million
+  const yFormat = y.domain()[1] >= 1e6 ? (v) => d3.format('~s')(v).replace('G', 'B') : fmt;
+  svg.append('g').attr('transform', `translate(${left},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(yFormat)).call((g) => g.select('.domain').remove());
   // two-monthly ticks across one Congress; over a longer span, whole years at a spacing that keeps ~10 labels
   const [d0, d1] = x.domain(), years = (d1 - d0) / (365.25 * 86400000);
   const ticks = years <= 3 ? [d3.utcMonth.every(2), d3.utcFormat('%b %Y')] : [d3.utcYear.every(Math.max(1, Math.ceil(years / 10))), d3.utcFormat('%Y')];
