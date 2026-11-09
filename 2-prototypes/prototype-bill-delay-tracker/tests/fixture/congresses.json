@@ -11,11 +11,36 @@
     "hr"
    ],
    "text_versions": 6,
-   "versions_without_ingest_date": 0,
+   "measures": [
+    "pages",
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "pages": {
+     "versions_with_value": 3,
+     "versions_total": 6,
+     "total": 3036,
+     "mean": 1012
+    },
+    "characters": {
+     "versions_with_value": 5,
+     "versions_total": 6,
+     "total": 5381300,
+     "mean": 1076260
+    },
+    "sections": {
+     "versions_with_value": 5,
+     "versions_total": 6,
+     "total": 2889,
+     "mean": 577.8
+    }
+   },
    "comparison": {
     "all": {
      "introduced_bills": 2,
      "introduced_summarized": 1,
+     "summarized_other_stage": 0,
      "summaries_after_end": 0,
      "median_lag_printed": 4,
      "p90_lag_printed": 4
@@ -23,6 +48,7 @@
     "hr": {
      "introduced_bills": 2,
      "introduced_summarized": 1,
+     "summarized_other_stage": 0,
      "summaries_after_end": 0,
      "median_lag_printed": 4,
      "p90_lag_printed": 4

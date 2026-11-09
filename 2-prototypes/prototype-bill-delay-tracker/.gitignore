@@ -1,2 +1,16 @@
 __pycache__/
 *.tmp
+_site/
+
+# Bulk data stays out of git: collect_warehouse.py and delays.py rebuild it in a few minutes with no
+# key, and the Pages workflow rebuilds it on every run. Tracked under data/: congresses.json (the
+# index) and, per Congress, stats.json and warehouse.json, a small dated snapshot of the numbers.
+/data/congresses.js
+/data/*/versions.csv
+/data/*/summaries.csv
+/data/*/delays.csv
+/data/*/awaiting.csv
+/data/*/delays.json
+/data/*/delays.js
+/data/*/pages.csv
+/data/*/ingest.csv

@@ -8,7 +8,16 @@
 (() => {
   'use strict';
 
-  const billKey = (r) => `${r.type}${r.number}`;
+  // A bill is its Congress, type and number: H.R. 1 of the 118th and of the 119th are different bills. Records carry
+  // congress once the page has tagged them with the Congress they were loaded for; untagged records share one Congress.
+  const billKey = (r) => `${r.congress ?? ''}-${r.type}${r.number}`;
+
+  // A record's bill has a CRS summary when its lag is set: delays.py measures introduced text to the bill's first summary,
+  // whatever version that summary describes (summary_stage names it when it is a later one; S. 1869 of the 115th was
+  // summarized once, at Public Law).
+  const isSummarized = (r) => r.lag_days != null;
+  /** The date the record's bill first had a summary; null if none. */
+  const firstSummaryDate = (r) => r.summary_date ?? null;
 
   function median(sorted) {
     const n = sorted.length;
@@ -18,19 +27,19 @@
 
   /** Header-row numbers over the records in view. lag* are null when nothing is summarized.
    *  waiting = distinct bills with a staged record and no summary in the set, so summarized + waiting === bills. */
-  function headerMetrics(records) {
-    const summarizedBills = new Set(records.filter((r) => r.lag_days !== null).map(billKey));
+  function headerMetrics(records, measure = 'pages') { // measure: the size field summed, pages / characters / sections
+    const summarizedBills = new Set(records.filter(isSummarized).map(billKey));
     const waitingBills = new Set(records.filter((r) => r.stage !== null && !summarizedBills.has(billKey(r))).map(billKey));
     const summarized = records.filter((r) => r.lag_days !== null);
     const lags = summarized.map((r) => r.lag_days).sort((a, b) => a - b);
-    const withPages = records.filter((r) => r.pages !== null);
+    const withSize = records.filter((r) => (r[measure] ?? null) !== null);
     return {
       bills: new Set(records.map(billKey)).size,
       summarized: summarizedBills.size,
       waiting: waitingBills.size,
       reported: new Set(records.filter((r) => r.stage === 'reported').map(billKey)).size,
-      pagesTotal: withPages.reduce((s, r) => s + r.pages, 0),
-      pagesCounted: withPages.length,
+      sizeTotal: withSize.reduce((s, r) => s + r[measure], 0),
+      sizeCounted: withSize.length,
       versions: records.length,
       n: lags.length,
       lagMean: lags.length ? lags.reduce((a, b) => a + b, 0) / lags.length : null,
@@ -45,11 +54,12 @@
   }
 
   /** Fixed-width bins of lag_days from 0 to the largest lag in view; no open-ended bin. A negative lag (a summary
-   *  dated before its text reached GovInfo; a handful exist) is left out rather than folded into the first bin. */
+   *  dated before its printed date; a handful exist) is left out rather than folded into the first bin. */
   function binLags(records, width) {
     const lags = records.filter((r) => r.lag_days !== null && r.lag_days >= 0).map((r) => r.lag_days);
     if (lags.length === 0) return [];
-    const count = Math.floor(Math.max(0, ...lags) / width) + 1;
+    // a loop, not Math.max(...lags): spreading every Congress's lags as arguments overflows the call stack
+    const count = Math.floor(lags.reduce((m, v) => (v > m ? v : m), 0) / width) + 1;
     const bins = Array.from({ length: count }, (_, i) => ({ from: i * width, to: (i + 1) * width, count: 0 }));
     for (const lag of lags) bins[Math.min(Math.max(0, Math.floor(lag / width)), count - 1)].count += 1;
     return bins;
@@ -86,7 +96,7 @@
       const month = r.text_date.slice(0, 7);
       if (!byMonth.has(month)) byMonth.set(month, { summarized: 0, waiting: 0 });
       const m = byMonth.get(month);
-      if (r.lag_days === null) m.waiting += 1; else m.summarized += 1;
+      if (isSummarized(r)) m.summarized += 1; else m.waiting += 1;
     }
     return [...byMonth.keys()].sort().map((month) => ({ month, ...byMonth.get(month) }));
   }
@@ -98,7 +108,8 @@
       if (r.stage === null) continue;
       const k = billKey(r);
       if (!firstText.has(k) || r.text_date < firstText.get(k)) firstText.set(k, r.text_date);
-      if (r.summary_date !== null && (!firstSummary.has(k) || r.summary_date < firstSummary.get(k))) firstSummary.set(k, r.summary_date);
+      const sd = firstSummaryDate(r);
+      if (sd !== null && (!firstSummary.has(k) || sd < firstSummary.get(k))) firstSummary.set(k, sd);
     }
     const dates = [...new Set([...firstText.values(), ...firstSummary.values()])].sort();
     const textDates = [...firstText.values()].sort(), summaryDates = [...firstSummary.values()].sort();
@@ -106,20 +117,32 @@
     return dates.map((date) => ({ date, withText: countLE(textDates, date), summarized: countLE(summaryDates, date) }));
   }
 
-  /** Running page totals over the given records (the caller scopes them to a stage, or passes every edition for 'all'): pages issued, and pages of the staged records whose summary has arrived. */
-  function cumulativePages(records) {
+  /** Running size totals over the given records, in the given measure (pages, characters or sections; the caller scopes
+   *  the records to a stage, or passes every edition for 'all'): size issued, and size of the staged records whose summary
+   *  has arrived. A record without a value for the measure counts toward versionsWithoutSize. */
+  function cumulativeSize(records, measure = 'pages') {
     const issued = [], summarized = [], missing = [];
     for (const r of records) {
-      if (r.pages === null) missing.push(r.text_date);
+      const n = r[measure] ?? null;
+      if (n === null) missing.push(r.text_date);
       else {
-        issued.push([r.text_date, r.pages]);
-        if (r.stage !== null && r.summary_date !== null) summarized.push([r.summary_date, r.pages]);
+        issued.push([r.text_date, n]);
+        if (r.stage !== null && firstSummaryDate(r) !== null) summarized.push([firstSummaryDate(r), n]);
       }
     }
     const dates = [...new Set([...issued.map((p) => p[0]), ...summarized.map((p) => p[0]), ...missing])].sort();
     const running = (pairs) => { const sorted = pairs.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)); let i = 0, sum = 0; return (d) => { while (i < sorted.length && sorted[i][0] <= d) sum += sorted[i++][1]; return sum; }; };
     const pi = running(issued), ps = running(summarized), pm = running(missing.map((d) => [d, 1]));
-    return dates.map((date) => ({ date, pagesIssued: pi(date), pagesSummarized: ps(date), versionsWithoutPages: pm(date) }));
+    return dates.map((date) => ({ date, sizeIssued: pi(date), sizeSummarized: ps(date), versionsWithoutSize: pm(date) }));
+  }
+
+  // Size measures, in the order the page offers them; pages is the proposal's (IV.2) and appears once the data carries it.
+  const MEASURES = [['pages', 'Pages'], ['characters', 'Characters'], ['sections', 'Sections']];
+
+  /** Size options for documents' measure lists ([[value, label], ...] in MEASURES order): every measure any document has. */
+  function measureOptions(lists) {
+    const have = new Set(lists.flat());
+    return MEASURES.filter(([m]) => have.has(m));
   }
 
   // Every measure type the GovInfo BILLS collection lists, in the order the page offers them (congress.py's BILL_TYPES).
@@ -161,7 +184,9 @@
       .sort((a, b) => Number(a.e.congress) - Number(b.e.congress))
       .map(({ e, c }) => ({
         congress: String(e.congress), ended: Boolean(e.ended), bills: c.introduced_bills, summarized: c.introduced_summarized,
-        waiting: c.introduced_bills - c.introduced_summarized, share: c.introduced_summarized / c.introduced_bills,
+        otherStage: c.summarized_other_stage ?? 0, // of the summarized, those whose first summary is for a later version
+        waiting: c.introduced_bills - c.introduced_summarized,
+        share: c.introduced_summarized / c.introduced_bills,
         median: c.median_lag_printed, afterEnd: c.summaries_after_end,
       }));
   }
@@ -183,7 +208,33 @@
     return `https://www.congress.gov/bill/${ordinal(congress)}-congress/${BILL_SLUGS[type]}/${number}`;
   }
 
-  const byNumber = (a, b) => Number(a.number) - Number(b.number) || (a.type < b.type ? -1 : a.type > b.type ? 1 : 0);
+  const byNumber = (a, b) => Number(a.congress ?? 0) - Number(b.congress ?? 0) || Number(a.number) - Number(b.number)
+    || (a.type < b.type ? -1 : a.type > b.type ? 1 : 0);
+
+  /** The records of several Congress documents as one list. Each record is tagged in place with its Congress (a string)
+   *  rather than copied: the pooled view holds a quarter of a million records and a copy would double that.
+   *  docs is [[congress, doc], ...]. */
+  function mergeCongresses(docs) {
+    const out = [];
+    for (const [congress, doc] of docs) {
+      const c = String(congress);
+      for (const r of doc.records) { r.congress = c; out.push(r); }
+    }
+    return out;
+  }
+
+  /** The Congresses the records come from, as strings, oldest first (records are tagged with their Congress on load). */
+  function congressesIn(records) {
+    const seen = new Set();
+    for (const r of records) if (r.congress != null) seen.add(String(r.congress));
+    return [...seen].sort((a, b) => Number(a) - Number(b));
+  }
+
+  /** Header for the pooled view: "All Congresses (108th–119th)", from the lowest and highest number in the index. */
+  function allCongressesLabel(entries) {
+    const ns = entries.map((e) => Number(e.congress));
+    return `All Congresses (${ordinal(Math.min(...ns))}–${ordinal(Math.max(...ns))})`;
+  }
 
   /** Top n records by lag_days descending among those with a summary; stage-less records excluded; ties by bill number ascending. */
   function longestLags(records, n = 10) {
@@ -198,7 +249,7 @@
   /** Top n records with no summary by whole days from text_date to asOf (ISO), descending, as copies carrying days_waiting; ties by bill number ascending. */
   function oldestWaiting(records, asOf, n = 10) {
     return records
-      .filter((r) => r.stage != null && r.summary_date == null)
+      .filter((r) => r.stage != null && !isSummarized(r))
       .map((r) => ({ ...r, days_waiting: utcDays(asOf) - utcDays(r.text_date) }))
       .sort((a, b) => b.days_waiting - a.days_waiting || byNumber(a, b))
       .slice(0, n);
@@ -222,7 +273,7 @@
   }
 
   // Dual export: CommonJS for `node --test`, a window global for the page (see the header comment).
-  const api = { headerMetrics, histogramMax, binLags, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativePages, billLabel, ordinal, billUrl, longestLags, oldestWaiting, exportName, toCsv, typeOptions, congressLabel, defaultCongress, congressSeries };
+  const api = { headerMetrics, histogramMax, binLags, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativeSize, measureOptions, billLabel, ordinal, billUrl, longestLags, oldestWaiting, exportName, toCsv, typeOptions, congressLabel, defaultCongress, congressSeries, mergeCongresses, allCongressesLabel, congressesIn };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else window.BillDelayMetrics = api;
 })();

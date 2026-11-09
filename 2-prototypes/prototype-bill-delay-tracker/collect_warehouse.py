@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """Read bill text versions and CRS summaries from the spicy-regs warehouse, one folder per Congress.
 
-Replaces collect.py's two API sweeps (the GovInfo BILLS listing and the Congress.gov
-/summaries list). The warehouse (Civic Tech DC's spicy-regs, Parquet on data.spicygov.ai)
-reads GovInfo BILLSTATUS nightly and publishes immutable generations; this script reads the
-current one and writes, for each Congress asked for, the same two files collect.py writes, under
-<data-dir>/<congress>/, so delays.py runs unchanged:
+The only collector: no API key, no per-bill API calls. The warehouse (Civic Tech DC's spicy-regs,
+Parquet on data.spicygov.ai) reads GovInfo nightly and publishes immutable generations; this script
+reads the current one and writes, for each Congress asked for, under <data-dir>/<congress>/:
 
-  versions.csv   one row per bill text version  (bill_versions, titled from congress_bills)
+  versions.csv   one row per bill text version  (bill_versions, titled from congress_bills, sized from
+                 bill_sections: sections and characters; pages once the warehouse publishes a page count)
   summaries.csv  one row per CRS summary version (bill_publisher_summaries, revisions folded)
   warehouse.json which generation was read, and when it was published
 
@@ -24,9 +23,9 @@ carries the latest revision, as the Congress.gov field did. Summaries first capt
 generation carry only their latest revision, which for an old Congress can be a re-publication
 years after the summary first appeared.
 
-Not here: pages.csv and ingest.csv. The warehouse has neither a page count nor GovInfo's
-dateIngested, so those stay with collect.py (`collect.py --skip versions summaries`), which
-fetches them once per new package_id and caches them.
+The warehouse has no page count and no GovInfo ingest date (2026-11-09). The proposal asks for pages,
+so the page column is read from bill_versions as soon as it carries one; until then the dashboard
+sizes bills in characters or sections, and lags start at the printed date.
 
 Needs duckdb (`python3 -m pip install duckdb`): Parquet has no stdlib reader. Everything
 else is stdlib. --source is the warehouse host or a local directory holding
@@ -53,7 +52,8 @@ POINTER = "publication.v2.json"
 FAMILY = "bill-family"
 UA = "bill-delay-tracker prototype (civic tech dc)"
 
-VERSION_FIELDS = ["package_id", "congress", "bill_type", "number", "version", "date_issued", "last_modified", "title"]
+VERSION_FIELDS = ["package_id", "congress", "bill_type", "number", "version", "date_issued", "title",
+                  "pages", "sections", "characters"]
 SUMMARY_FIELDS = ["congress", "bill_type", "number", "version_code", "action_desc", "action_date",
                   "update_date", "current_chapter", "last_summary_update_date"]
 
@@ -110,42 +110,69 @@ def warehouse_congresses(con, prefix):
     return sorted(int(c) for (c,) in rows if c.isdigit())
 
 
-def versions_rows(con, prefix, congresses, bill_types):
-    """One row per GovInfo text package, in collect.py's shape, for every Congress asked for. Rows without a
-    package_id (public and private laws are listed, not printed) are not text versions and are skipped. The
-    version code is the package id's suffix (ih, rh, eas2), the same spelling GovInfo uses, read off the id
-    rather than the warehouse's slug so the two collectors agree. date_issued is the publisher's version date,
-    the date printed on the bill (empty for a few hundred printings per Congress); last_modified has no
-    warehouse counterpart and is left empty."""
+def table_files(entry, prefix, name, congresses):
+    """The Parquet files of one table, as a SQL list literal. A table the pointer lists as partitioned by Congress
+    (bill_sections is, one member per Congress) is read from the members for the Congresses asked for only; any other
+    table is the one file <prefix>/<name>. None when a partitioned table has no member for those Congresses."""
+    members = (entry.get("tables") or {}).get(name, {}).get("members")
+    if not members:
+        return f"['{prefix}/{name}']"
+    keys = [m["key"] for m in members if str(m.get("partition", {}).get("congress")) in {str(c) for c in congresses}]
+    return "[" + ", ".join(f"'{prefix}/{k}'" for k in keys) + "]" if keys else None
+
+
+def columns_of(con, files):
+    return {r[0] for r in con.execute(f"DESCRIBE SELECT * FROM read_parquet({files})").fetchall()}
+
+
+def versions_rows(con, prefix, entry, congresses, bill_types):
+    """One row per GovInfo text package, for every Congress asked for. Rows without a package_id (public and private
+    laws are listed, not printed) are not text versions and are skipped. The version code is the package id's suffix
+    (ih, rh, eas2), the same spelling GovInfo uses, read off the id rather than the warehouse's slug. date_issued is the
+    publisher's version date, the date printed on the bill (empty for a few hundred printings per Congress).
+
+    Size of the printing, from the warehouse alone: sections and characters count and add up its rows in bill_sections
+    (the parsed bill text; empty where the warehouse has not parsed that printing, most of the 108th Congress), and
+    pages is bill_versions' own page count if the warehouse ever publishes one, empty until then."""
+    versions_file = table_files(entry, prefix, "bill_versions.parquet", congresses)
+    pages = "max(v.pages)" if "pages" in columns_of(con, versions_file) else "NULL"
+    sections_files = table_files(entry, prefix, "bill_sections.parquet", congresses)
+    sections = (f"""SELECT bill_id, printing_id, count(*) AS sections, sum(body_chars) AS characters
+                    FROM read_parquet({sections_files}) GROUP BY ALL""" if sections_files
+                else "SELECT NULL::VARCHAR AS bill_id, NULL::VARCHAR AS printing_id, NULL AS sections, NULL AS characters")
     rows = con.execute(f"""
         WITH v AS (
-            SELECT bill_id, package_id, version_date,
-                   split_part(bill_id, '-', 1) AS congress,
+            SELECT *, split_part(bill_id, '-', 1) AS congress,
                    split_part(bill_id, '-', 2) AS bill_type,
                    split_part(bill_id, '-', 3) AS number
-            FROM read_parquet('{prefix}/bill_versions.parquet')
+            FROM read_parquet({versions_file})
             WHERE package_id IS NOT NULL AND split_part(bill_id, '-', 1) IN ({sql_list(congresses)})
         ),
         b AS (
-            SELECT bill_id, title FROM read_parquet('{prefix}/congress_bills.parquet')
+            SELECT bill_id, title FROM read_parquet({table_files(entry, prefix, "congress_bills.parquet", congresses)})
             WHERE split_part(bill_id, '-', 1) IN ({sql_list(congresses)})
-        )
-        SELECT DISTINCT v.package_id, v.congress, v.bill_type, v.number, v.version_date, COALESCE(b.title, '') AS title
-        FROM v LEFT JOIN b USING (bill_id)
+        ),
+        s AS ({sections})
+        SELECT v.package_id, v.congress, v.bill_type, v.number, min(v.version_date) AS version_date,
+               COALESCE(max(b.title), '') AS title, {pages} AS pages, max(s.sections) AS sections,
+               max(s.characters) AS characters
+        FROM v LEFT JOIN b USING (bill_id) LEFT JOIN s USING (bill_id, printing_id)
         WHERE v.bill_type IN ({sql_list(bill_types)})
-        ORDER BY v.congress, v.version_date DESC, v.package_id
+        GROUP BY v.package_id, v.congress, v.bill_type, v.number
+        ORDER BY v.congress, version_date DESC, v.package_id
     """).fetchall()
     out = []
-    for package_id, congress, bill_type, number, version_date, title in rows:
+    as_text = lambda n: "" if n is None else str(int(n))  # noqa: E731
+    for package_id, congress, bill_type, number, version_date, title, pg, sec, chars in rows:
         suffix = package_id.split("-", 1)[1][len(congress) + len(bill_type) + len(number):]
         out.append({"package_id": package_id, "congress": congress, "bill_type": bill_type, "number": number,
-                    "version": suffix, "date_issued": (version_date or "")[:10], "last_modified": "",
-                    "title": title})
+                    "version": suffix, "date_issued": (version_date or "")[:10], "title": title,
+                    "pages": as_text(pg), "sections": as_text(sec), "characters": as_text(chars)})
     return out
 
 
 def summaries_rows(con, prefix, congresses, bill_types):
-    """One row per CRS summary version, in collect.py's shape, from the warehouse's retained revisions:
+    """One row per CRS summary version, from the warehouse's retained revisions:
     last_summary_update_date is the earliest retained update_date (the first publication, what
     delays.py measures to) and update_date the latest (the current revision). action_date and
     action_desc are the publisher's for that summary version; a bill restating the same summary
@@ -198,7 +225,7 @@ def main():
         else:
             congresses = parse_congresses(",".join(["current", *map(str, congress_dirs(a.data_dir))]), today)
         names = [str(n) for n in congresses]
-        versions = versions_rows(con, prefix, names, bill_types)
+        versions = versions_rows(con, prefix, entry, names, bill_types)
         summaries = summaries_rows(con, prefix, names, bill_types)
     finally:
         con.close()

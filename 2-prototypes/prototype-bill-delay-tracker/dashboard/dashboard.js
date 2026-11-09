@@ -4,13 +4,13 @@
 // <script> tag when it is first picked, which file:// pages allow where fetch() is blocked.
 'use strict';
 
-const { headerMetrics, binLags, histogramMax, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativePages, longestLags, oldestWaiting, billLabel, billUrl, ordinal, exportName, toCsv, typeOptions, congressLabel, defaultCongress, congressSeries } = window.BillDelayMetrics;
+const { headerMetrics, binLags, histogramMax, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativeSize, measureOptions, longestLags, oldestWaiting, billLabel, billUrl, ordinal, exportName, toCsv, typeOptions, congressLabel, defaultCongress, congressSeries, mergeCongresses, allCongressesLabel, congressesIn } = window.BillDelayMetrics;
 
 // The Congressional Tech site's coverage colors (apps/site Dashboard.tsx): "has it" is the primary
 // blue, "missing it" is the gold. Here a bill that has its summary is blue, one still waiting is gold.
 const BLUE = '#104378', GOLD = '#eec05e', INK = '#1b1b1b', MUTED = '#565c65';
 let fmt; // assigned in main() once d3 is known to be loaded
-const day = (v) => (v === null ? '–' : `${Math.round(v)}`);
+const day = (v) => (v === null ? "–" : fmt(Math.round(v)));
 
 let congress = ''; // the Congress in view, set by showCongress()
 let asOf = ''; // that Congress's as_of date (ISO)
@@ -22,20 +22,28 @@ let asOf = ''; // that Congress's as_of date (ISO)
 // The proposal (IV.2) asks for no breakdown by stage.
 const STAGE = 'introduced';
 const state = { congresses: [], entry: null, congress: null, records: [], summaryBefore: {}, stage: STAGE, type: 'all',
-  range: { from: null, to: null }, includeWaiting: true, width: 30 };
+  range: { from: null, to: null }, includeWaiting: true, width: 30,
+  measure: null, measureLists: [] }; // the size measure shown, and the measure lists of the Congresses in view
 
-function card(label, value, note = '') {
-  return `<div class="card"><div class="value">${value}</div><div class="label">${label}</div><div class="note">${note}</div></div>`;
+function card(label, value, note = '', exact = '') {
+  const title = exact ? ` title="${exact}"` : '';
+  return `<div class="card"><div class="value"${title}>${value}</div><div class="label">${label}</div><div class="note">${note}</div></div>`;
 }
 
+/** A card value that fits the card: up to 9,999,999 in full, above that the short form (164.7M, 1.46B). */
+const cardNumber = (n) => (Math.abs(n) < 1e7 ? fmt(n) : d3.format('.3~s')(n).replace('G', 'B'));
+
+const measureWord = () => (state.measure || 'size').toLowerCase(); // "characters", "sections" or "pages"
+
 function renderHeader(records, allEditions) {
-  const m = headerMetrics(records);
+  const m = headerMetrics(records, state.measure);
   const r = headerMetrics(allEditions); // reported needs the reported-stage records, which the page otherwise ignores
-  const pagesCard = m.pagesCounted
-    ? card('pages of bill text', fmt(m.pagesTotal), `${fmt(m.pagesCounted)} of ${fmt(m.versions)} introduced versions counted`)
-    : card('pages of bill text', '–', 'no page counts collected for this Congress');
+  const sizeCard = m.sizeCounted
+    ? card(`${measureWord()} of bill text`, cardNumber(m.sizeTotal), `${fmt(m.sizeCounted)} of ${fmt(m.versions)} introduced versions measured`,
+      fmt(m.sizeTotal))
+    : card(`${measureWord()} of bill text`, '–', 'no parsed text for these bills');
   document.getElementById('cards').innerHTML = [
-    pagesCard,
+    sizeCard,
     card('bills summarized', fmt(m.summarized), `${fmt(m.waiting)} still waiting`),
     card('reported by committee', fmt(r.reported), 'bills with an rh/rs text version'),
     card('mean lag (days)', day(m.lagMean), `n=${fmt(m.n)}`),
@@ -47,7 +55,7 @@ function renderHeader(records, allEditions) {
 function renderPreText() {
   const n = state.summaryBefore[STAGE] || 0;
   document.getElementById('pre-text').textContent = n
-    ? `${fmt(n)} introduced summaries exist for bills whose introduced text GovInfo has not posted.` : '';
+    ? `${fmt(n)} introduced summaries exist for bills with no printed introduced text in the data.` : '';
 }
 
 /** The foot-of-page caveat's counts: later-stage summaries the page leaves out, and introduced summaries in view dated
@@ -56,15 +64,15 @@ function renderPreText() {
 function renderExceptions(records, introduced) {
   const n = records.filter((r) => r.stage !== null && r.stage !== STAGE && r.lag_days !== null).length;
   document.getElementById('exceptions').textContent = fmt(n);
-  const end = state.entry.end;
-  const late = introduced.filter((r) => r.summary_date !== null && r.summary_date > end).length;
+  const ends = new Map(state.congresses.map((e) => [String(e.congress), e.end])); // each record against its own Congress
+  const late = introduced.filter((r) => r.summary_date !== null && r.summary_date > ends.get(String(r.congress))).length;
   document.getElementById('after-end-count').textContent = fmt(late);
-  document.getElementById('after-end-date').textContent = dayName(end);
   document.getElementById('after-end').hidden = late === 0;
-  const e = state.entry;
-  document.getElementById('printed-fallback').hidden = !e.versions_without_ingest_date;
-  document.getElementById('printed-fallback-count').textContent = fmt(e.versions_without_ingest_date || 0);
-  document.getElementById('printed-fallback-total').textContent = fmt(e.text_versions || 0);
+  // bills whose first CRS summary describes a later version (a reported bill or the public law): their lag runs to it
+  const laterOnly = new Set(introduced.filter((r) => r.lag_days != null && r.summary_stage)
+    .map((r) => `${r.congress}-${r.type}${r.number}`)).size;
+  document.getElementById('later-only-count').textContent = fmt(laterOnly);
+  document.getElementById('later-only').hidden = laterOnly === 0;
 }
 
 function renderHistogram(records, state) {
@@ -81,14 +89,16 @@ function renderHistogram(records, state) {
   const svg = fig.append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
     .attr('aria-label', 'Histogram of lag in days');
   svg.append('text').attr('x', left).attr('y', 13).attr('font-size', 14).attr('font-weight', 600).attr('fill', INK)
-    .text(`Days from text on GovInfo to CRS summary, ${width}-day bins (n=${fmt(m.n)} summarized, ${fmt(m.waiting)} still waiting${negative ? `; ${fmt(negative)} dated before the text reached GovInfo, not binned` : ''})`);
+    .text(`Days from the printed date to CRS summary, ${width}-day bins (n=${fmt(m.n)} summarized, ${fmt(m.waiting)} still waiting${negative ? `; ${fmt(negative)} dated before the printed date, not binned` : ''})`);
   const x = d3.scaleBand().domain([...bins.map((_, i) => i), ...(includeWaiting ? ['waiting'] : [])]).range([left, W - right]).padding(0.12);
   const unit = 'bills';
   const y = d3.scaleLinear().domain([0, histogramMax(bins, includeWaiting ? m.waiting : 0)]).nice().range([H - bottom, top]);
   svg.append('g').attr('transform', `translate(${left},0)`).call(d3.axisLeft(y).ticks(6).tickFormat(fmt))
     .call((g) => g.select('.domain').remove()).selectAll('text').attr('fill', MUTED);
-  const every = Math.max(1, Math.ceil(48 / x.step())); // at least ~48 px per x label
   const binLabel = (b) => `${b.from}–${b.to - 1}`;
+  // room for the longest label at 9 px (~5.5 px a character) plus a gap: "0–29" needs less than "4200–4229"
+  const labelPx = binLabel(bins[bins.length - 1]).length * 5.5 + 14;
+  const every = Math.max(1, Math.ceil(labelPx / x.step()));
   const axis = d3.axisBottom(x).tickFormat((i) => (i === 'waiting' ? 'waiting' : binLabel(bins[i])));
   svg.append('g').attr('transform', `translate(0,${H - bottom})`).call(axis)
     .call((g) => g.select('.domain').remove())
@@ -156,18 +166,28 @@ function refreshControls(state) {
     if (input.value && (input.value < min || input.value > max)) input.value = '';
   }
   state.range = { from: el.querySelector('#date-from').value || null, to: el.querySelector('#date-to').value || null };
+  // size measures the Congresses in view carry (pages once the warehouse publishes it); keep the chosen one if offered
+  const measures = measureOptions(state.measureLists);
+  if (!measures.some(([v]) => v === state.measure)) state.measure = measures[0]?.[0] ?? null;
+  const sizeSelect = el.querySelector('#measure');
+  sizeSelect.innerHTML = options(measures, state.measure);
+  sizeSelect.closest('label').hidden = measures.length < 2;
 }
 
 function renderControls(state) {
   const el = document.getElementById('controls');
   if (el.children.length) return; // built once; refreshControls() repoints it per Congress
   const dateInput = (id, label) => `<label>${label}<input type="date" id="${id}"></label>`;
-  const congresses = state.congresses.map((e) => [String(e.congress), congressLabel(e)]);
+  const usable = state.congresses.filter((e) => (e.comparison?.all?.introduced_bills ?? 0) > 0);
+  const congresses = [...(usable.length > 1 ? [[ALL, allCongressesLabel(usable)]] : []),
+    ...state.congresses.map((e) => [String(e.congress), congressLabel(e)])];
   el.innerHTML = select('congress', 'Congress', congresses, String(state.congress))
     + select('type', 'Bill type', [['all', 'All types']], state.type)
-    + dateInput('date-from', 'Text posted from') + dateInput('date-to', 'to')
-    + '<button id="clear-dates" type="button">Clear date filters</button>';
+    + dateInput('date-from', 'Printed from') + dateInput('date-to', 'to')
+    + '<button id="clear-dates" type="button">Clear date filters</button>'
+    + select('measure', 'Bill size in', [], state.measure);
   const from = el.querySelector('#date-from'), to = el.querySelector('#date-to');
+  el.querySelector('#measure').addEventListener('change', (e) => { state.measure = e.target.value; render(state); });
   el.querySelector('#congress').addEventListener('change', (e) => { showCongress(e.target.value).catch((err) => showError(err, true)); });
   el.querySelector('#type').addEventListener('change', (e) => { state.type = e.target.value; render(state); });
   const setRange = () => { state.range = { from: from.value || null, to: to.value || null }; render(state); };
@@ -193,7 +213,7 @@ const dayName = (d) => `${+d.slice(8, 10)} ${monthLabel(d)} ${d.slice(0, 4)}`;
 const activeRange = (r) => ((r.from || r.to) && !(r.from && r.to && r.from > r.to) ? r : null);
 const rangeLabel = (r) => {
   const a = activeRange(r);
-  if (!a) return state.entry?.ended ? 'Whole Congress' : 'Congress to date';
+  if (!a) return state.congress === ALL ? 'All Congresses' : state.entry?.ended ? 'Whole Congress' : 'Congress to date';
   return a.from && a.to ? `${dayName(a.from)} – ${dayName(a.to)}` : a.from ? `from ${dayName(a.from)}` : `to ${dayName(a.to)}`;
 };
 const currentRecords = (state) => filterRecords(state.records, state);
@@ -218,10 +238,15 @@ function renderTimeseries(records, state) {
   }
   const monthAxis = (y) => {
     const g = svg.append('g');
+    // month names only when each bar has room for one; years every nth year so labels never overlap (~32 px each)
+    const showMonths = x.step() >= 18;
+    const yearEvery = Math.max(1, Math.ceil(32 / (x.step() * 12)));
     for (const s of series) {
       const cx = x(s.month) + x.bandwidth() / 2;
-      g.append('text').attr('x', cx).attr('y', y).attr('font-size', 10).attr('text-anchor', 'middle').attr('fill', MUTED).text(monthLabel(s.month));
-      if (s.month.endsWith('-01') || s === series[0]) g.append('text').attr('x', cx).attr('y', y + 12).attr('font-size', 10).attr('font-weight', 600).attr('text-anchor', 'middle').attr('fill', INK).text(s.month.slice(0, 4));
+      if (showMonths) g.append('text').attr('x', cx).attr('y', y).attr('font-size', 10).attr('text-anchor', 'middle').attr('fill', MUTED).text(monthLabel(s.month));
+      const year = Number(s.month.slice(0, 4));
+      const yearMark = (s.month.endsWith('-01') && year % yearEvery === 0) || (showMonths && s === series[0]);
+      if (yearMark) g.append('text').attr('x', cx).attr('y', showMonths ? y + 12 : y + 6).attr('font-size', 10).attr('font-weight', 600).attr('text-anchor', 'middle').attr('fill', INK).text(year);
     }
     g.append('text').attr('x', (left + W - right) / 2).attr('y', y + 28).attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK).text('Month the text version was issued');
   };
@@ -243,13 +268,18 @@ function renderTimeseries(records, state) {
   monthAxis(topY + topH + 14);
 }
 
-/** Every Congress in the index side by side: the share of introduced bills with a CRS summary (top) and the median days
- *  from the printed date to the summary (bottom), for the bill type in view. The Congress in view is outlined. */
+/** The Congresses in view side by side: the share of introduced bills with a CRS summary (top) and the median days from
+ *  the printed date to the summary (bottom), for the bill type in view. Shown only when the loaded records span more than
+ *  one Congress, read from the records themselves, so any future selection of several Congresses gets it too. */
 function renderByCongress(state) {
-  const series = congressSeries(state.congresses, state.type);
+  const inView = congressesIn(state.records);
+  const series = congressSeries(state.congresses.filter((e) => inView.includes(String(e.congress))), state.type);
+  const figure = document.getElementById('by-congress');
   const fig = d3.select('#by-congress .chart').html('');
-  if (series.length < 2) { // one Congress is not a comparison; the rest of the page already shows it
-    fig.append('p').attr('class', 'note').text(series.length ? 'Collect more Congresses (collect_warehouse.py --congress all) to compare them here.' : '');
+  figure.hidden = inView.length < 2; // one Congress is not a comparison; the rest of the page already shows it
+  if (figure.hidden) return;
+  if (series.length < 2) {
+    fig.append('p').attr('class', 'note').text('Fewer than two of these Congresses have bills of this type.');
     return;
   }
   const W = 920, left = 76, right = 16, topY = 58, topH = 120, gap = 40, lowH = 130, H = topY + topH + gap + lowH + 44;
@@ -309,8 +339,13 @@ function renderCumulative(target, series, keys, labels, title, yLabel, note = ''
   const svg = fig.append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', title);
   svg.append('text').attr('x', left).attr('y', 18).attr('font-size', 14).attr('font-weight', 600).attr('fill', INK).text(title);
   if (note) svg.append('text').attr('x', left).attr('y', 36).attr('font-size', 12).attr('fill', MUTED).text(note);
-  svg.append('g').attr('transform', `translate(${left},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(fmt)).call((g) => g.select('.domain').remove());
-  svg.append('g').attr('transform', `translate(0,${H - bottom})`).call(d3.axisBottom(x).ticks(d3.utcMonth.every(2)).tickFormat(d3.utcFormat('%b %Y'))).call((g) => g.select('.domain').remove());
+  // millions of characters do not fit the left margin as 150,000,000: short form (150M) once the axis reaches a million
+  const yFormat = y.domain()[1] >= 1e6 ? (v) => d3.format('~s')(v).replace('G', 'B') : fmt;
+  svg.append('g').attr('transform', `translate(${left},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(yFormat)).call((g) => g.select('.domain').remove());
+  // two-monthly ticks across one Congress; over a longer span, whole years at a spacing that keeps ~10 labels
+  const [d0, d1] = x.domain(), years = (d1 - d0) / (365.25 * 86400000);
+  const ticks = years <= 3 ? [d3.utcMonth.every(2), d3.utcFormat('%b %Y')] : [d3.utcYear.every(Math.max(1, Math.ceil(years / 10))), d3.utcFormat('%Y')];
+  svg.append('g').attr('transform', `translate(0,${H - bottom})`).call(d3.axisBottom(x).ticks(ticks[0]).tickFormat(ticks[1])).call((g) => g.select('.domain').remove());
   svg.append('text').attr('transform', `translate(14,${(top + H - bottom) / 2}) rotate(-90)`).attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK).text(yLabel);
   const line = (key) => d3.line().curve(d3.curveStepAfter).x((s) => x(parse(s.date))).y((s) => y(s[key]));
   const gap = d3.area().curve(d3.curveStepAfter).x((s) => x(parse(s.date))).y0((s) => y(s[keys[1]])).y1((s) => y(s[keys[0]]));
@@ -406,16 +441,18 @@ function exportPng(figure) {
   img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(text)}`;
 }
 
-const CSV_COLUMNS = ['bill', 'type', 'number', 'text_date', 'printed_date', 'summary_date', 'days', 'pages', 'title', 'url'];
 function exportCsv(which) {
   const records = currentRecords(state);
   const lags = which === 'longest-lags';
+  const measures = measureOptions(state.measureLists).map(([m]) => m); // every size the data has, not only the one shown
   const rows = (lags ? longestLags(records, Infinity) : oldestWaiting(records, asOf, Infinity)).map((r) => ({
-    bill: billLabel(r.type, r.number), type: r.type, number: r.number, text_date: r.text_date, printed_date: r.printed_date,
-    summary_date: lags ? r.summary_date : '', days: lags ? r.lag_days : r.days_waiting, pages: r.pages, title: r.title,
-    url: billUrl(congress, r.type, r.number),
+    bill: billLabel(r.type, r.number), type: r.type, number: r.number, printed_date: r.text_date,
+    summary_date: lags ? r.summary_date : '', days: lags ? r.lag_days : r.days_waiting, title: r.title,
+    ...Object.fromEntries(measures.map((m) => [m, r[m] ?? null])),
+    congress: r.congress, url: billUrl(r.congress, r.type, r.number),
   }));
-  const columns = lags ? CSV_COLUMNS : CSV_COLUMNS.filter((c) => c !== 'summary_date');
+  const columns = ['bill', 'congress', 'type', 'number', 'printed_date', ...(lags ? ['summary_date'] : []), 'days',
+    ...measures, 'title', 'url'];
   download(new Blob([toCsv(rows, columns)], { type: 'text/csv;charset=utf-8' }), `${exportName(which, state, asOf)}.csv`);
 }
 
@@ -442,15 +479,19 @@ function renderTable(selector, rows, cols) {
     + rows.map((r) => `<tr>${cols.map(([, f, c]) => `<td class="${c}">${f(r)}</td>`).join('')}</tr>`).join('') + '</tbody></table>';
 }
 
-const billCell = (r) => `<a href="${esc(billUrl(congress, r.type, r.number))}" target="_blank" rel="noopener">${esc(billLabel(r.type, r.number))}</a>`;
+// in the pooled view a bill number needs its Congress: H.R. 1 exists in every one
+const billText = (r) => billLabel(r.type, r.number) + (state.congress === ALL ? ` (${ordinal(r.congress)})` : '');
+const billCell = (r) => `<a href="${esc(billUrl(r.congress, r.type, r.number))}" target="_blank" rel="noopener">${esc(billText(r))}</a>`;
 
 function renderLists(records) {
   const bill = ['Bill', billCell, 'nowrap'];
-  const textDate = ['Posted on GovInfo', (r) => esc(r.text_date), 'nowrap'], pages = ['Pages', (r) => (r.pages == null ? '–' : fmt(r.pages)), 'num'];
+  const textDate = ['Printed', (r) => esc(r.text_date), 'nowrap'];
+  const m = state.measure, sizeHead = m ? m[0].toUpperCase() + m.slice(1) : 'Size';
+  const size = ['' + sizeHead, (r) => (m === null || r[m] == null ? '–' : fmt(r[m])), 'num'];
   const title = ['Title', (r) => esc(r.title), 'title'];
   renderTable('#longest-lags', longestLags(records), [bill, textDate,
-    ['Summary date', (r) => esc(r.summary_date), 'nowrap'], ['Days', (r) => fmt(r.lag_days), 'num'], pages, title]);
-  renderTable('#oldest-waiting', oldestWaiting(records, asOf), [bill, textDate, ['Days waiting', (r) => fmt(r.days_waiting), 'num'], pages, title]);
+    ['Summary date', (r) => esc(r.summary_date), 'nowrap'], ['Days', (r) => fmt(r.lag_days), 'num'], size, title]);
+  renderTable('#oldest-waiting', oldestWaiting(records, asOf), [bill, textDate, ['Days waiting', (r) => fmt(r.days_waiting), 'num'], size, title]);
 }
 
 function render(state) {
@@ -468,11 +509,14 @@ function render(state) {
   const scope = rangeLabel(state.range);
   renderCumulative('#cumulative .chart', cumulativeSeries(records), ['withText', 'summarized'], ['with text', 'summarized'],
     `${scope}: bills with text issued, and bills with a CRS summary. The gap is the backlog.`, 'bills');
-  const pagesSeries = cumulativePages(records);
-  const uncounted = pagesSeries.length ? pagesSeries.at(-1).versionsWithoutPages : 0;
-  renderCumulative('#cumulative-pages .chart', pagesSeries, ['pagesIssued', 'pagesSummarized'], ['pages issued', 'pages summarized'],
-    `${scope}: pages of bill text issued, and pages covered by a CRS summary.`, 'pages',
-    [uncounted ? `${fmt(uncounted)} versions not yet page-counted.` : '', 'Pages of introduced text versions.'].filter(Boolean).join(' '));
+  const word = measureWord();
+  if (!state.measure) { d3.select('#cumulative-pages .chart').html(''); return; }
+  const sizeSeries = cumulativeSize(records, state.measure);
+  const unmeasured = sizeSeries.length ? sizeSeries.at(-1).versionsWithoutSize : 0;
+  renderCumulative('#cumulative-pages .chart', sizeSeries, ['sizeIssued', 'sizeSummarized'], [`${word} issued`, `${word} summarized`],
+    `${scope}: ${word} of bill text issued, and ${word} covered by a CRS summary.`, word,
+    [unmeasured ? `${fmt(unmeasured)} versions without parsed text.` : '', `${word[0].toUpperCase()}${word.slice(1)} of introduced text versions.`]
+      .filter(Boolean).join(' '));
 }
 
 /** A Congress's document: already loaded, or added now as a <script> tag for ../data/<n>/delays.js, which puts it on
@@ -490,33 +534,63 @@ function loadCongress(entry) {
   });
 }
 
+const ALL = 'all'; // the picker's value for every Congress pooled
+
+/** The loading banner: a spinner, what is loading and how many files have arrived; the figures below dim until the data is
+ *  in, so a reader never takes the previous Congress's charts for the new one. label null keeps the current label. */
+function showLoading(label, done, total) {
+  const box = document.getElementById('loading');
+  if (label !== null) box.dataset.label = label;
+  document.getElementById('loading-text').textContent =
+    total > 1 ? `${box.dataset.label}… ${done} of ${total} loaded` : `${box.dataset.label}…`;
+  box.hidden = false;
+  document.body.classList.add('is-loading');
+}
+
+function hideLoading() {
+  document.getElementById('loading').hidden = true;
+  document.body.classList.remove('is-loading');
+}
+
 let showing = 0; // the latest showCongress() call; an earlier load that lands late is dropped
+/** Show one Congress, or ALL of them pooled into one view. Records are tagged with their Congress so bills, links and
+ *  exports stay per Congress when they are pooled. */
 async function showCongress(n) {
   const ticket = ++showing;
-  const entry = state.congresses.find((e) => String(e.congress) === String(n));
-  if (!entry) throw new Error(`Congress ${n} is not in data/congresses.js`);
+  const pooled = String(n) === ALL;
+  const entries = pooled ? state.congresses.filter((e) => (e.comparison?.all?.introduced_bills ?? 0) > 0)
+    : state.congresses.filter((e) => String(e.congress) === String(n));
+  if (entries.length === 0) throw new Error(`Congress ${n} is not in data/congresses.js`);
   const select = document.getElementById('congress');
   if (select) select.disabled = true;
+  const toLoad = entries.filter((e) => !window.BILL_DELAYS?.[String(e.congress)]);
+  if (toLoad.length) showLoading(pooled ? `Loading ${entries.length} Congresses` : `Loading the ${congressLabel(entries[0])}`, 0, toLoad.length);
   try {
-    const doc = await loadCongress(entry);
+    let done = 0;
+    const docs = await Promise.all(entries.map((e) => loadCongress(e).then((doc) => {
+      if (toLoad.includes(e) && ticket === showing) showLoading(null, ++done, toLoad.length);
+      return doc;
+    })));
     if (ticket !== showing) return;
-    if (!Array.isArray(doc.records)) throw new Error(`${entry.file} has no records array`);
-    state.entry = entry;
-    state.congress = String(entry.congress);
-    state.records = doc.records;
-    state.summaryBefore = doc.summary_before_text || {};
+    docs.forEach((doc, i) => { if (!Array.isArray(doc.records)) throw new Error(`${entries[i].file} has no records array`); });
+    state.entry = pooled
+      ? { congress: ALL, ended: entries.every((e) => e.ended), end: entries.map((e) => e.end).sort().at(-1) }
+      : entries[0];
+    state.measureLists = docs.map((d) => d.measures || []);
+    state.congress = pooled ? ALL : String(entries[0].congress);
+    state.records = mergeCongresses(entries.map((e, i) => [e.congress, docs[i]]));
+    state.summaryBefore = {};
+    for (const d of docs) for (const [k, v] of Object.entries(d.summary_before_text || {})) state.summaryBefore[k] = (state.summaryBefore[k] || 0) + v;
     congress = state.congress;
-    asOf = doc.as_of;
-    const intro = doc.introduced_versions || 0, printedOnly = doc.introduced_without_ingest_date || 0;
-    const start = printedOnly === 0 ? 'the day the text reached GovInfo'
-      : printedOnly === intro ? 'the date printed on the bill (no GovInfo posting dates collected for this Congress)'
-        : `the day the text reached GovInfo, or the printed date for ${fmt(printedOnly)} of ${fmt(intro)} introduced versions`;
+    asOf = docs.map((d) => d.as_of).sort().at(-1);
+    const label = pooled ? allCongressesLabel(entries) : congressLabel(entries[0]);
     document.getElementById('subtitle').textContent =
-      `Lag between a bill text version and its CRS summary on Congress.gov, ${congressLabel(entry)}, as of ${doc.as_of}. Measured from ${start}.`;
+      `Lag between a bill text version and its CRS summary on Congress.gov, ${label}, as of ${asOf}. Measured from the date printed on the bill.`;
     renderControls(state);
     refreshControls(state);
     render(state);
   } finally {
+    if (ticket === showing) hideLoading();
     if (select && ticket === showing) select.disabled = false;
   }
 }
@@ -531,8 +605,10 @@ async function main() {
     if (!index) throw new Error('data/congresses.js not found');
     if (!Array.isArray(index.congresses)) throw new Error('congresses.js has no congresses list');
     state.congresses = index.congresses;
-    const first = defaultCongress(state.congresses);
-    if (first === null) throw new Error('no Congress in data/congresses.js has an introduced bill');
+    const newest = defaultCongress(state.congresses);
+    if (newest === null) throw new Error('no Congress in data/congresses.js has an introduced bill');
+    // the page opens on the newest Congress, one file to load; "All Congresses" heads the picker, one click away
+    const first = newest;
     state.congress = String(first);
     setupExports();
     await showCongress(first);
