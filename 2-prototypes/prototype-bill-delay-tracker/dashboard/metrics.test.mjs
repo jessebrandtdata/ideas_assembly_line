@@ -283,20 +283,19 @@ test('binLags handles every Congress pooled (300,000 lags) without overflowing t
   assert.equal(bins.reduce((s, b) => s + b.count, 0), 300000);
 });
 
-test('a bill summarized only at a later stage is summarized, not waiting, and has no lag (S. 1869 of the 115th)', () => {
-  // introduced text, no introduced summary; CRS's only summary is the Public Law one
-  const s1869 = rec({ type: 's', number: '1869', text_date: '2017-09-27', other_summary_date: '2019-08-29' });
+test('a bill whose first summary is for a later version is summarized, with its lag to that summary (S. 1869 of the 115th)', () => {
+  // introduced text printed 2017-09-27; CRS's only summary is the Public Law one, 2019-08-29
+  const s1869 = rec({ type: 's', number: '1869', text_date: '2017-09-27', summary_date: '2019-08-29', lag_days: 701,
+    summary_stage: 'enrolled' });
   const waiting = rec({ number: '2', text_date: '2017-10-01' });
   const m = headerMetrics([s1869, waiting]);
-  assert.deepEqual([m.bills, m.summarized, m.waiting, m.n], [2, 1, 1, 0]);
+  assert.deepEqual([m.bills, m.summarized, m.waiting, m.n, m.lagMax], [2, 1, 1, 1, 701]);
   assert.deepEqual(oldestWaiting([s1869, waiting], '2026-11-09').map((r) => r.number), ['2']);
-  assert.deepEqual(monthlySeries([s1869]), [{ month: '2017-09', summarized: 1, waiting: 0 }]);
-  assert.equal(cumulativeSeries([s1869]).at(-1).summarized, 1);
-  assert.deepEqual(longestLags([s1869]), []); // nothing to measure
+  assert.deepEqual(longestLags([s1869]).map((r) => r.number), ['1869']);
 });
 
-test('congressSeries counts later-stage-only summaries as summarized', () => {
-  const e = entry(115, { comparison: { all: { introduced_bills: 100, introduced_summarized: 85, summarized_other_stage: 15,
+test('congressSeries: summarized includes bills first summarized at a later version', () => {
+  const e = entry(115, { comparison: { all: { introduced_bills: 100, introduced_summarized: 100, summarized_other_stage: 15,
     median_lag_printed: 132, summaries_after_end: 0 } } });
   const [p] = congressSeries([e, entry(116)]);
   assert.deepEqual([p.waiting, p.share, p.otherStage], [0, 1, 15]);

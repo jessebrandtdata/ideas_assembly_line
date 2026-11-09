@@ -65,7 +65,7 @@ class DelaysJson(unittest.TestCase):
     def test_comparison_measures_from_the_printed_date_per_type(self):
         c = self.old["comparison"]
         self.assertEqual(c["all"]["introduced_bills"], 4)  # the undated s4 and the misprinted s5 are left out
-        self.assertEqual(c["all"]["introduced_summarized"], 2)
+        self.assertEqual(c["all"]["introduced_summarized"], 3)  # hr 1, hres 3, and s 6 by its Public Law summary
         self.assertEqual(c["hr"]["median_lag_printed"], 20)  # 2023-01-09 to 2023-01-29
         self.assertEqual(c["hres"]["introduced_bills"], 1)
         self.assertEqual(c["all"]["summaries_after_end"], 1)  # hres 3, dated after 2025-01-02
@@ -76,14 +76,18 @@ class DelaysJson(unittest.TestCase):
         self.assertEqual(self.old["text_versions"], 4)
         self.assertEqual(self.old["measures"], [])  # no size columns, no size measures
 
-    def test_bill_summarized_only_at_a_later_stage_is_not_waiting(self):
-        # like S. 1869 of the 115th: introduced text, one CRS summary, at Public Law
+    def test_lag_runs_to_the_first_summary_whatever_version_it_describes(self):
+        # like S. 1869 of the 115th: introduced text printed, one CRS summary, at Public Law
         c = self.old["comparison"]
         self.assertEqual(c["all"]["summarized_other_stage"], 1)
-        self.assertEqual(c["s"]["introduced_summarized"], 0)  # no introduced summary, so no introduced lag
+        self.assertEqual(c["s"]["introduced_summarized"], 1)
+        self.assertEqual(c["s"]["median_lag_printed"], 547)  # 2023-03-01 to 2024-08-29
         records = json.loads((self.root / "118" / "delays.json").read_text())["records"]
         r = next(r for r in records if r["type"] == "s" and r["number"] == "6")
-        self.assertEqual((r["stage"], r["lag_days"], r["other_summary_date"]), ("introduced", None, "2024-08-29"))
+        self.assertEqual((r["stage"], r["summary_date"], r["lag_days"], r["summary_stage"]),
+                         ("introduced", "2024-08-29", 547, "enrolled"))
+        hr1 = next(r for r in records if r["type"] == "hr" and r["number"] == "1")
+        self.assertNotIn("summary_stage", hr1)  # its first summary is the introduced one
         with (self.root / "118" / "awaiting.csv").open(newline="") as f:
             self.assertNotIn(("s", "6"), [(w["bill_type"], w["number"]) for w in csv.DictReader(f)])
         self.assertEqual(self.old["introduced_awaiting_summary"], 1)  # only hr 2 waits

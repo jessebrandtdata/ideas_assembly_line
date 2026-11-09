@@ -1,4 +1,4 @@
-bill_type,number,stage,package_id,text_date,summary_date,delay_days,pages,characters,sections,title
-hr,1,passed,BILLS-119hr1eh,2025-05-22,2025-06-10,19,1018,1801000,998,One Big Beautiful Bill Act
-hr,1,reported,BILLS-119hr1rh,2025-05-20,2025-09-22,125,1118,1920000,1013,One Big Beautiful Bill Act
-hr,10786,introduced,BILLS-119hr10786ih,2026-10-09,2026-10-13,4,,9100,6,Civic Literacy in Higher Education Act
+bill_type,number,stage,package_id,text_date,summary_date,summary_stage,delay_days,pages,characters,sections,title
+hr,1,passed,BILLS-119hr1eh,2025-05-22,2025-06-10,passed,19,1018,1801000,998,One Big Beautiful Bill Act
+hr,1,reported,BILLS-119hr1rh,2025-05-20,2025-09-22,reported,125,1118,1920000,1013,One Big Beautiful Bill Act
+hr,10786,introduced,BILLS-119hr10786ih,2026-10-09,2026-10-13,introduced,4,,9100,6,Civic Literacy in Higher Education Act

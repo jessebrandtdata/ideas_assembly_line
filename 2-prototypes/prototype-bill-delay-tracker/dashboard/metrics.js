@@ -12,12 +12,12 @@
   // congress once the page has tagged them with the Congress they were loaded for; untagged records share one Congress.
   const billKey = (r) => `${r.congress ?? ''}-${r.type}${r.number}`;
 
-  // A record's bill has a CRS summary: one for its own stage (lag_days is set), or only at another stage
-  // (other_summary_date, from delays.py; S. 1869 of the 115th was summarized once, at Public Law). Either way the bill is
-  // not waiting; only an own-stage summary has a lag to measure.
-  const isSummarized = (r) => r.lag_days != null || r.other_summary_date != null;
-  /** The date the record's bill first had a summary: its own stage's, else the earliest at another stage; null if none. */
-  const firstSummaryDate = (r) => r.summary_date ?? r.other_summary_date ?? null;
+  // A record's bill has a CRS summary when its lag is set: delays.py measures introduced text to the bill's first summary,
+  // whatever version that summary describes (summary_stage names it when it is a later one; S. 1869 of the 115th was
+  // summarized once, at Public Law).
+  const isSummarized = (r) => r.lag_days != null;
+  /** The date the record's bill first had a summary; null if none. */
+  const firstSummaryDate = (r) => r.summary_date ?? null;
 
   function median(sorted) {
     const n = sorted.length;
@@ -184,9 +184,9 @@
       .sort((a, b) => Number(a.e.congress) - Number(b.e.congress))
       .map(({ e, c }) => ({
         congress: String(e.congress), ended: Boolean(e.ended), bills: c.introduced_bills, summarized: c.introduced_summarized,
-        otherStage: c.summarized_other_stage ?? 0,
-        waiting: c.introduced_bills - c.introduced_summarized - (c.summarized_other_stage ?? 0),
-        share: (c.introduced_summarized + (c.summarized_other_stage ?? 0)) / c.introduced_bills,
+        otherStage: c.summarized_other_stage ?? 0, // of the summarized, those whose first summary is for a later version
+        waiting: c.introduced_bills - c.introduced_summarized,
+        share: c.introduced_summarized / c.introduced_bills,
         median: c.median_lag_printed, afterEnd: c.summaries_after_end,
       }));
   }
