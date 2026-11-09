@@ -1,10 +1,12 @@
 __pycache__/
 *.tmp
 _site/
+govinfo-cache/
 
 # Bulk data stays out of git: collect_warehouse.py and delays.py rebuild it in a few minutes with no
 # key, and the Pages workflow rebuilds it on every run. Tracked under data/: congresses.json (the
-# index) and, per Congress, stats.json and warehouse.json, a small dated snapshot of the numbers.
+# index) and, per Congress, stats.json and warehouse.json, a small dated snapshot of the numbers, plus
+# govinfo.csv where the optional GovInfo page lookups ran (one API call per printing, slow to rebuild).
 /data/congresses.js
 /data/*/versions.csv
 /data/*/summaries.csv

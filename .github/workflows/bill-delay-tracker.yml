@@ -47,6 +47,28 @@ jobs:
       - name: Text versions, sizes and summaries from the warehouse, every Congress folder plus the current one
         run: python collect_warehouse.py
 
+      # Optional page counts (proposal IV.2 counts pages; the warehouse has none): one GovInfo call per new printing
+      # of the Congress in session. Off unless the repository variable GOVINFO_PAGES is "true" and the
+      # DATA_GOV_API_KEY secret is set. The committed govinfo.csv seeds it; an Actions cache carries new lookups.
+      - name: Restore GovInfo page lookups
+        if: vars.GOVINFO_PAGES == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.PROTOTYPE }}/govinfo-cache
+          key: govinfo-${{ github.run_id }}
+          restore-keys: govinfo-
+      - name: GovInfo page counts for the Congress in session
+        if: vars.GOVINFO_PAGES == 'true'
+        env:
+          DATA_GOV_API_KEY: ${{ secrets.DATA_GOV_API_KEY }}
+        run: python collect_govinfo.py --congress current --max-lookups 2000 --cache-dir govinfo-cache
+      - name: Save GovInfo page lookups
+        if: vars.GOVINFO_PAGES == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.PROTOTYPE }}/govinfo-cache
+          key: govinfo-${{ github.run_id }}
+
       - name: Lags, statistics and the Congress index
         run: python delays.py
       - name: Tests
