@@ -7,7 +7,7 @@ const { headerMetrics, binLags, histogramMax, filterRecords, dateBounds, monthly
 
 // The Congressional Tech site's coverage colors (apps/site Dashboard.tsx): "has it" is the primary
 // blue, "missing it" is the gold. Here a bill that has its summary is blue, one still waiting is gold.
-const BLUE = '#104378', GOLD = '#eec05e', INK = '#1f2933', MUTED = '#6b7280';
+const BLUE = '#104378', GOLD = '#eec05e', INK = '#1b1b1b', MUTED = '#565c65';
 let fmt; // assigned in main() once d3 is known to be loaded
 const day = (v) => (v === null ? '–' : `${Math.round(v)}`);
 
