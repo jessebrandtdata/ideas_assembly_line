@@ -1,14 +1,23 @@
 #!/usr/bin/env python3
-"""Collect bill text versions (GovInfo) and CRS summaries (Congress.gov) for one Congress.
+"""Collect bill text versions (GovInfo) and CRS summaries (Congress.gov), one folder per Congress.
 
-Writes, under --data-dir (default ./data):
+Writes, under --data-dir/<congress>/ (default ./data/<congress>/):
   versions.csv   one row per bill text version  (GovInfo BILLS collection listing)
   pages.csv      page count per text version    (GovInfo package summary, one call each)
+  ingest.csv     day GovInfo took each version in (GovInfo MODS dateIngested, one call each)
   summaries.csv  one row per CRS summary version (Congress.gov /summaries list)
 
-Every collector is incremental and resumable: rows already on disk are kept and
-only new ones are fetched. Stdlib only. DEMO_KEY works but is slow and capped
-(~30 requests/hour), so the --max-* knobs default low; raise them with a real key.
+--congress takes numbers, ranges (113-119), "current" or "previous", and defaults to the current
+and previous Congress, worked out from today's date: in January the new Congress starts filling
+while the old one finishes. The --max-* caps are for the whole run, spent on the newest Congress
+first. Every collector is incremental and resumable: rows already on disk are kept and only new
+ones are fetched. Stdlib only. DEMO_KEY works but is slow and capped (~30 requests/hour), so the
+--max-* knobs default low; raise them with a real key.
+
+GovInfo's dateIngested is the day a package entered the current repository. For bills printed
+before GovInfo's predecessor migrated (a 110th Congress introduced bill reads 2010-09-21) that is
+the migration, not the day the text went public, so collecting ingest dates for old Congresses
+measures nothing; delays.py falls back to the printed date where no ingest date was collected.
 """
 import argparse
 import concurrent.futures
@@ -20,13 +29,14 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import date
 from pathlib import Path
 
+from congress import BILL_TYPES, congress_start, parse_congresses
 from keys import load_key
 
 GOVINFO = "https://api.govinfo.gov"
 CONGRESS = "https://api.congress.gov/v3"
-BILL_TYPES = ["hr", "s", "hjres", "sjres"]
 UA = "bill-delay-tracker prototype (civic tech dc)"
 
 
@@ -87,17 +97,23 @@ def read_csv(path):
 
 
 def write_csv(path, rows, fields):
-    with path.open("w", newline="") as f:
+    """Write beside the file and rename over it, so a run stopped mid-write leaves the old file whole
+    instead of a truncated cache (which the next run would read as rows still to fetch)."""
+    tmp = path.with_name(path.name + ".tmp")
+    with tmp.open("w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fields)
         w.writeheader()
         w.writerows(rows)
+    tmp.replace(path)
 
 
 def parse_package_id(pid):
     """BILLS-119hr10786ih -> ('119','hr','10786','ih')."""
     body = pid.split("-", 1)[1]
-    congress = body[:3]
-    rest = body[3:]
+    k = 0
+    while k < len(body) and body[k].isdigit():
+        k += 1
+    congress, rest = body[:k], body[k:]
     i = 0
     while i < len(rest) and rest[i].isalpha():
         i += 1
@@ -142,7 +158,7 @@ def collect_versions(data_dir, key, congress, since, max_requests):
         url = page.get("nextPage")
         if url and "api_key=" in url:
             url = url.split("api_key=")[0].rstrip("&?")
-    return rows
+    return rows, n
 
 
 def collect_pages(data_dir, key, versions, max_requests):
@@ -152,15 +168,16 @@ def collect_pages(data_dir, key, versions, max_requests):
     todo = [v for v in versions if v["package_id"] not in have]
     # newest first so a capped run covers the live end of the Congress
     todo.sort(key=lambda v: v["date_issued"], reverse=True)
-    for v in todo[:max_requests]:
+    for i, v in enumerate(todo[:max_requests], 1):
         s = get_json(f"{GOVINFO}/packages/{v['package_id']}/summary", key)
         pages = (s or {}).get("pages", "")
         rows.append({"package_id": v["package_id"], "pages": pages})
-        write_csv(path, rows, ["package_id", "pages"])
+        if i % 100 == 0:  # resumable without rewriting the whole file after every call
+            write_csv(path, rows, ["package_id", "pages"])
     print(f"pages: {min(len(todo), max_requests)} fetched, {len(todo) - min(len(todo), max_requests)} still missing",
           file=sys.stderr)
     write_csv(path, rows, ["package_id", "pages"])
-    return rows
+    return rows, min(len(todo), max_requests)
 
 
 INGEST_FIELDS = ["package_id", "date_ingested"]
@@ -194,7 +211,7 @@ def collect_ingest(data_dir, key, versions, max_requests, workers=4):
                       file=sys.stderr)
     write_csv(path, rows, INGEST_FIELDS)
     print(f"ingest: {len(todo)} fetched, {len(versions) - len(rows)} still missing", file=sys.stderr)
-    return rows
+    return rows, len(todo)
 
 
 SUMMARY_FIELDS = ["congress", "bill_type", "number", "version_code", "action_desc", "action_date",
@@ -240,14 +257,16 @@ def collect_summaries(data_dir, key, congress, since, max_requests, page_size):
             if len(items) < page_size:
                 break
             offset = known if new == 0 and known > offset + page_size else offset + page_size
-    return rows
+    return rows, n
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--congress", default="119")
-    ap.add_argument("--since", default="2025-01-03", help="earliest lastModified / updateDate to sweep")
-    ap.add_argument("--data-dir", type=Path, default=Path(__file__).parent / "data")
+    ap.add_argument("--congress", default="current,previous",
+                    help="numbers, ranges (113-119), current or previous (default: current,previous)")
+    ap.add_argument("--since", help="earliest lastModified / updateDate to sweep (default: the day each Congress began)")
+    ap.add_argument("--data-dir", type=Path, default=Path(__file__).parent / "data",
+                    help="root folder; each Congress is read from and written to <data-dir>/<congress>/")
     ap.add_argument("--api-key")
     ap.add_argument("--max-version-pages", type=int, default=3, help="GovInfo listing pages of 500")
     ap.add_argument("--max-page-lookups", type=int, default=20, help="GovInfo per-version page-count calls")
@@ -256,18 +275,34 @@ def main():
     ap.add_argument("--summary-page-size", type=int, default=250)
     ap.add_argument("--skip", nargs="*", default=[], choices=["versions", "pages", "ingest", "summaries"])
     a = ap.parse_args()
+    try:
+        congresses = parse_congresses(a.congress, date.today())
+    except ValueError as e:
+        ap.error(str(e))
     key = load_key(a.api_key)
     print(f"key: {'DEMO_KEY (slow, capped)' if key == 'DEMO_KEY' else 'real key'}", file=sys.stderr)
-    a.data_dir.mkdir(parents=True, exist_ok=True)
-    versions = read_csv(a.data_dir / "versions.csv")
-    if "versions" not in a.skip:
-        versions = collect_versions(a.data_dir, key, a.congress, a.since, a.max_version_pages)
-    if "pages" not in a.skip:
-        collect_pages(a.data_dir, key, versions, a.max_page_lookups)
-    if "ingest" not in a.skip:
-        collect_ingest(a.data_dir, key, versions, a.max_ingest_lookups)
-    if "summaries" not in a.skip:
-        collect_summaries(a.data_dir, key, a.congress, a.since, a.max_summary_requests, a.summary_page_size)
+    # one budget per knob for the whole run, spent newest Congress first
+    left = {"versions": a.max_version_pages, "pages": a.max_page_lookups, "ingest": a.max_ingest_lookups,
+            "summaries": a.max_summary_requests}
+    for congress in congresses:
+        data_dir = a.data_dir / str(congress)
+        since = a.since or congress_start(congress).isoformat()
+        print(f"congress {congress} (since {since})", file=sys.stderr)
+        versions = read_csv(data_dir / "versions.csv")
+        if "versions" not in a.skip and left["versions"] > 0:
+            data_dir.mkdir(parents=True, exist_ok=True)
+            versions, used = collect_versions(data_dir, key, congress, since, left["versions"])
+            left["versions"] -= used
+        if not versions:
+            print(f"  no text versions for Congress {congress} on disk; nothing to look up", file=sys.stderr)
+            continue
+        if "pages" not in a.skip:
+            left["pages"] -= collect_pages(data_dir, key, versions, left["pages"])[1]
+        if "ingest" not in a.skip:
+            left["ingest"] -= collect_ingest(data_dir, key, versions, left["ingest"])[1]
+        if "summaries" not in a.skip and left["summaries"] > 0:
+            left["summaries"] -= collect_summaries(data_dir, key, congress, since, left["summaries"],
+                                                   a.summary_page_size)[1]
 
 
 if __name__ == "__main__":

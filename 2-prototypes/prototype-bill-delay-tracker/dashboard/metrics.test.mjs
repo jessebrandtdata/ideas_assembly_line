@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 // ES modules are blocked), so it arrives here as one default object.
 import metrics from './metrics.js';
 
-const { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativePages, histogramMax, dateBounds, longestLags, oldestWaiting, billLabel, billUrl, ordinal, exportName, toCsv } = metrics;
+const { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativePages, histogramMax, dateBounds, longestLags, oldestWaiting, billLabel, billUrl, ordinal, exportName, toCsv, typeOptions, congressLabel, defaultCongress, congressSeries } = metrics;
 
 const rec = (o) => ({ type: 'hr', number: '1', stage: 'introduced', text_date: '2025-01-10',
   summary_date: null, lag_days: null, pages: null, reported: false, title: 't', ...o });
@@ -211,15 +211,64 @@ test('dateBounds is the earliest and latest text_date, ISO strings', () => {
   assert.deepEqual(dateBounds([]), { min: null, max: null });
 });
 
-test('billLabel and billUrl cover all four bill types', () => {
+test('billLabel and billUrl cover all eight measure types', () => {
   assert.equal(billLabel('hr', '360'), 'H.R. 360');
   assert.equal(billLabel('s', '12'), 'S. 12');
   assert.equal(billLabel('hjres', '5'), 'H.J.Res. 5');
   assert.equal(billLabel('sjres', '7'), 'S.J.Res. 7');
+  assert.equal(billLabel('hconres', '3'), 'H.Con.Res. 3');
+  assert.equal(billLabel('sconres', '4'), 'S.Con.Res. 4');
+  assert.equal(billLabel('hres', '9'), 'H.Res. 9');
+  assert.equal(billLabel('sres', '10'), 'S.Res. 10');
   assert.equal(billUrl('119', 'hr', '360'), 'https://www.congress.gov/bill/119th-congress/house-bill/360');
   assert.equal(billUrl(119, 's', '12'), 'https://www.congress.gov/bill/119th-congress/senate-bill/12');
   assert.equal(billUrl('119', 'hjres', '5'), 'https://www.congress.gov/bill/119th-congress/house-joint-resolution/5');
   assert.equal(billUrl('119', 'sjres', '7'), 'https://www.congress.gov/bill/119th-congress/senate-joint-resolution/7');
+  assert.equal(billUrl('113', 'hconres', '3'), 'https://www.congress.gov/bill/113th-congress/house-concurrent-resolution/3');
+  assert.equal(billUrl('113', 'sconres', '4'), 'https://www.congress.gov/bill/113th-congress/senate-concurrent-resolution/4');
+  assert.equal(billUrl('120', 'hres', '9'), 'https://www.congress.gov/bill/120th-congress/house-resolution/9');
+  assert.equal(billUrl('120', 'sres', '10'), 'https://www.congress.gov/bill/120th-congress/senate-resolution/10');
+});
+
+test('typeOptions lists the types present, in the known order, unknown ones last', () => {
+  const opts = typeOptions([rec({ type: 'sres' }), rec({ type: 'hr' }), rec({ type: 'zz' }), rec({ type: 'hr' }), rec({ type: 's' })]);
+  assert.deepEqual(opts, [['all', 'All types'], ['hr', 'H.R.'], ['s', 'S.'], ['sres', 'S.Res.'], ['zz', 'ZZ']]);
+  assert.deepEqual(typeOptions([]), [['all', 'All types']]);
+});
+
+const entry = (congress, o = {}) => {
+  const n = Number(congress), y = 1789 + 2 * (n - 1);
+  return { congress: String(congress), start: `${y}-01-03`, end: `${y + 2}-01-02`, ended: false, file: `${congress}/delays.js`,
+    comparison: { all: { introduced_bills: 10, introduced_summarized: 4, median_lag_printed: 30, summaries_after_end: 0 } }, ...o };
+};
+
+test('congressLabel names the ordinal and the two calendar years', () => {
+  assert.equal(congressLabel(entry(119)), '119th Congress (2025–2026)');
+  assert.equal(congressLabel(entry(120)), '120th Congress (2027–2028)');
+  assert.equal(congressLabel(entry(111)), '111th Congress (2009–2010)');
+});
+
+test('defaultCongress is the newest Congress with an introduced bill, never a fixed number', () => {
+  const empty120 = entry(120, { comparison: { all: { introduced_bills: 0, introduced_summarized: 0, median_lag_printed: null, summaries_after_end: 0 } } });
+  assert.equal(defaultCongress([entry(118), entry(119)]), '119');
+  assert.equal(defaultCongress([empty120, entry(119), entry(118)]), '119'); // a new Congress with nothing printed yet
+  assert.equal(defaultCongress([entry(121), entry(119)]), '121');
+  assert.equal(defaultCongress([]), null);
+});
+
+test('congressSeries runs oldest first, follows the type, drops Congresses with none of it', () => {
+  const a = entry(118, { ended: true, comparison: {
+    all: { introduced_bills: 10, introduced_summarized: 10, median_lag_printed: 40, summaries_after_end: 2 },
+    hres: { introduced_bills: 2, introduced_summarized: 2, median_lag_printed: 5, summaries_after_end: 0 } } });
+  const b = entry(119, { comparison: { all: { introduced_bills: 8, introduced_summarized: 2, median_lag_printed: null, summaries_after_end: 0 } } });
+  const all = congressSeries([b, a]);
+  assert.deepEqual(all.map((s) => s.congress), ['118', '119']);
+  assert.deepEqual(all[0], { congress: '118', ended: true, bills: 10, summarized: 10, waiting: 0, share: 1, median: 40, afterEnd: 2 });
+  assert.equal(all[1].waiting, 6);
+  assert.equal(all[1].share, 0.25);
+  assert.equal(all[1].median, null);
+  assert.deepEqual(congressSeries([b, a], 'hres').map((s) => s.congress), ['118']);
+  assert.deepEqual(congressSeries([b, a], 'sres'), []);
 });
 
 test('ordinal handles st/nd/rd/th and the teens', () => {
@@ -275,6 +324,7 @@ test('exportName builds the filename stem, with the range only when it is usable
   assert.equal(exportName('cumulative', { ...st, range: { from: '2025-02-01', to: null } }, '2026-10-15'), 'bill-delay-cumulative-all-2025-02-01_end-2026-10-15');
   assert.equal(exportName('cumulative', { ...st, range: { from: '2025-05-01', to: '2025-01-01' } }, '2026-10-15'), 'bill-delay-cumulative-all-2026-10-15'); // inverted = none
   assert.equal(exportName('longest-lags', { type: 's' }, '2026-10-15'), 'bill-delay-longest-lags-s-2026-10-15');
+  assert.equal(exportName('histogram', { ...st, congress: '118' }, '2026-10-15'), 'bill-delay-histogram-118-all-2026-10-15');
 });
 
 test('toCsv quotes per RFC 4180 and ends rows with CRLF', () => {
