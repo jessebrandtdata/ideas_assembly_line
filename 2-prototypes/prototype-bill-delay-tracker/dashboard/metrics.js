@@ -8,7 +8,9 @@
 (() => {
   'use strict';
 
-  const billKey = (r) => `${r.type}${r.number}`;
+  // A bill is its Congress, type and number: H.R. 1 of the 118th and of the 119th are different bills. Records carry
+  // congress once the page has tagged them with the Congress they were loaded for; untagged records share one Congress.
+  const billKey = (r) => `${r.congress ?? ''}-${r.type}${r.number}`;
 
   function median(sorted) {
     const n = sorted.length;
@@ -183,7 +185,26 @@
     return `https://www.congress.gov/bill/${ordinal(congress)}-congress/${BILL_SLUGS[type]}/${number}`;
   }
 
-  const byNumber = (a, b) => Number(a.number) - Number(b.number) || (a.type < b.type ? -1 : a.type > b.type ? 1 : 0);
+  const byNumber = (a, b) => Number(a.congress ?? 0) - Number(b.congress ?? 0) || Number(a.number) - Number(b.number)
+    || (a.type < b.type ? -1 : a.type > b.type ? 1 : 0);
+
+  /** The records of several Congress documents as one list. Each record is tagged in place with its Congress (a string)
+   *  rather than copied: the pooled view holds a quarter of a million records and a copy would double that.
+   *  docs is [[congress, doc], ...]. */
+  function mergeCongresses(docs) {
+    const out = [];
+    for (const [congress, doc] of docs) {
+      const c = String(congress);
+      for (const r of doc.records) { r.congress = c; out.push(r); }
+    }
+    return out;
+  }
+
+  /** Header for the pooled view: "All Congresses (108th–119th)", from the lowest and highest number in the index. */
+  function allCongressesLabel(entries) {
+    const ns = entries.map((e) => Number(e.congress));
+    return `All Congresses (${ordinal(Math.min(...ns))}–${ordinal(Math.max(...ns))})`;
+  }
 
   /** Top n records by lag_days descending among those with a summary; stage-less records excluded; ties by bill number ascending. */
   function longestLags(records, n = 10) {
@@ -222,7 +243,7 @@
   }
 
   // Dual export: CommonJS for `node --test`, a window global for the page (see the header comment).
-  const api = { headerMetrics, histogramMax, binLags, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativePages, billLabel, ordinal, billUrl, longestLags, oldestWaiting, exportName, toCsv, typeOptions, congressLabel, defaultCongress, congressSeries };
+  const api = { headerMetrics, histogramMax, binLags, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativePages, billLabel, ordinal, billUrl, longestLags, oldestWaiting, exportName, toCsv, typeOptions, congressLabel, defaultCongress, congressSeries, mergeCongresses, allCongressesLabel };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else window.BillDelayMetrics = api;
 })();

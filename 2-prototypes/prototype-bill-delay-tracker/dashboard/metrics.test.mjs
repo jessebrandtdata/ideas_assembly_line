@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 // ES modules are blocked), so it arrives here as one default object.
 import metrics from './metrics.js';
 
-const { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativePages, histogramMax, dateBounds, longestLags, oldestWaiting, billLabel, billUrl, ordinal, exportName, toCsv, typeOptions, congressLabel, defaultCongress, congressSeries } = metrics;
+const { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativePages, histogramMax, dateBounds, longestLags, oldestWaiting, billLabel, billUrl, ordinal, exportName, toCsv, typeOptions, congressLabel, defaultCongress, congressSeries, mergeCongresses, allCongressesLabel } = metrics;
 
 const rec = (o) => ({ type: 'hr', number: '1', stage: 'introduced', text_date: '2025-01-10',
   summary_date: null, lag_days: null, pages: null, reported: false, title: 't', ...o });
@@ -241,6 +241,28 @@ const entry = (congress, o = {}) => {
   return { congress: String(congress), start: `${y}-01-03`, end: `${y + 2}-01-02`, ended: false, file: `${congress}/delays.js`,
     comparison: { all: { introduced_bills: 10, introduced_summarized: 4, median_lag_printed: 30, summaries_after_end: 0 } }, ...o };
 };
+
+test('mergeCongresses pools documents and tags each record with its Congress', () => {
+  const a = { records: [rec({ number: '1' }), rec({ number: '2' })] }, b = { records: [rec({ number: '1' })] };
+  const all = mergeCongresses([['118', a], [119, b]]);
+  assert.deepEqual(all.map((r) => [r.congress, r.number]), [['118', '1'], ['118', '2'], ['119', '1']]);
+  assert.equal(a.records[0].congress, '118'); // tagged in place, not copied
+});
+
+test('the same bill number in two Congresses is two bills', () => {
+  const pooled = mergeCongresses([['118', { records: [rec({ number: '1', lag_days: 10, summary_date: '2023-02-01' })] }],
+    ['119', { records: [rec({ number: '1' })] }]]);
+  const m = headerMetrics(pooled);
+  assert.equal(m.bills, 2);
+  assert.equal(m.summarized, 1);
+  assert.equal(m.waiting, 1);
+  const waiting = oldestWaiting([...pooled, { ...pooled[1], congress: '117' }], '2026-01-01');
+  assert.deepEqual(waiting.map((r) => r.congress), ['117', '119']); // equal ages: ordered by Congress
+});
+
+test('allCongressesLabel spans the lowest and highest Congress', () => {
+  assert.equal(allCongressesLabel([entry(119), entry(108), entry(113)]), 'All Congresses (108th–119th)');
+});
 
 test('congressLabel names the ordinal and the two calendar years', () => {
   assert.equal(congressLabel(entry(119)), '119th Congress (2025–2026)');
