@@ -1,6 +1,7 @@
 __pycache__/
 *.tmp
 _site/
+govinfo-cache/
 
 # Bulk data stays out of git: collect_warehouse.py and delays.py rebuild it in seconds, and the
 # Pages workflow rebuilds it on every run. Tracked under data/: congresses.json (the index) and, per
