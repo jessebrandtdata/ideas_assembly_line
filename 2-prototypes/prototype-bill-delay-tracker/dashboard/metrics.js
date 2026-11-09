@@ -122,8 +122,49 @@
     return dates.map((date) => ({ date, pagesIssued: pi(date), pagesSummarized: ps(date), versionsWithoutPages: pm(date) }));
   }
 
-  const BILL_LABELS = { hr: 'H.R.', s: 'S.', hjres: 'H.J.Res.', sjres: 'S.J.Res.' };
-  const BILL_SLUGS = { hr: 'house-bill', s: 'senate-bill', hjres: 'house-joint-resolution', sjres: 'senate-joint-resolution' };
+  // Every measure type the GovInfo BILLS collection lists, in the order the page offers them (congress.py's BILL_TYPES).
+  const BILL_TYPES = ['hr', 's', 'hjres', 'sjres', 'hconres', 'sconres', 'hres', 'sres'];
+  const BILL_LABELS = { hr: 'H.R.', s: 'S.', hjres: 'H.J.Res.', sjres: 'S.J.Res.', hconres: 'H.Con.Res.', sconres: 'S.Con.Res.', hres: 'H.Res.', sres: 'S.Res.' };
+  const BILL_SLUGS = { hr: 'house-bill', s: 'senate-bill', hjres: 'house-joint-resolution', sjres: 'senate-joint-resolution',
+    hconres: 'house-concurrent-resolution', sconres: 'senate-concurrent-resolution', hres: 'house-resolution', sres: 'senate-resolution' };
+
+  /** Bill-type filter options for the records in view: [value, label] pairs, 'all' first, then each type present in the
+   *  known order, then any type the page has no label for, alphabetically. Read from the data, so a Congress with no
+   *  concurrent resolutions offers none. */
+  function typeOptions(records) {
+    const present = new Set(records.map((r) => r.type));
+    const known = BILL_TYPES.filter((t) => present.has(t));
+    const other = [...present].filter((t) => !BILL_TYPES.includes(t)).sort();
+    return [['all', 'All types'], ...[...known, ...other].map((t) => [t, BILL_LABELS[t] ?? String(t).toUpperCase()])];
+  }
+
+  /** "119th Congress (2025–2026)": the ordinal and the two calendar years it sits in (it ends on January 2 of the third). */
+  function congressLabel(entry) {
+    const first = Number(entry.start.slice(0, 4)), last = Number(entry.end.slice(0, 4)) - 1;
+    return `${ordinal(entry.congress)} Congress (${first}–${last})`;
+  }
+
+  /** The Congress the page opens on: the newest one in the index that has an introduced bill. Null for an empty index. */
+  function defaultCongress(entries) {
+    const usable = entries.filter((e) => (e.comparison?.all?.introduced_bills ?? 0) > 0);
+    if (usable.length === 0) return null;
+    return usable.reduce((a, b) => (Number(b.congress) > Number(a.congress) ? b : a)).congress;
+  }
+
+  /** One point per Congress, oldest first, for the by-Congress chart: introduced bills of the given type, how many have a
+   *  summary, how many wait, the median lag from the printed date, and the summaries dated after the Congress ended.
+   *  A Congress with no bills of that type is left out. */
+  function congressSeries(entries, type = 'all') {
+    return entries
+      .map((e) => ({ e, c: e.comparison?.[type] }))
+      .filter(({ c }) => c && c.introduced_bills > 0)
+      .sort((a, b) => Number(a.e.congress) - Number(b.e.congress))
+      .map(({ e, c }) => ({
+        congress: String(e.congress), ended: Boolean(e.ended), bills: c.introduced_bills, summarized: c.introduced_summarized,
+        waiting: c.introduced_bills - c.introduced_summarized, share: c.introduced_summarized / c.introduced_bills,
+        median: c.median_lag_printed, afterEnd: c.summaries_after_end,
+      }));
+  }
 
   /** "H.R. 360": the conventional abbreviation for the bill type, a space, the number. */
   function billLabel(type, number) {
@@ -163,12 +204,14 @@
       .slice(0, n);
   }
 
-  /** Download filename (no extension): bill-delay-<kind>-<type>[-<from>_<to>]-<asOf>.
-   *  The range part appears only for a usable range (an inverted one is ignored, as in filterRecords); an open side reads "start"/"end". */
-  function exportName(kind, { type = 'all', range = null } = {}, asOf) {
+  /** Download filename (no extension): bill-delay-<kind>[-<congress>]-<type>[-<from>_<to>]-<asOf>.
+   *  The Congress part appears when the view names one. The range part appears only for a usable range (an inverted one
+   *  is ignored, as in filterRecords); an open side reads "start"/"end". */
+  function exportName(kind, { congress = null, type = 'all', range = null } = {}, asOf) {
     const from = range?.from || null, to = range?.to || null;
     const ranged = (from || to) && !(from && to && from > to);
-    return ['bill-delay', kind, type, ...(ranged ? [`${from || 'start'}_${to || 'end'}`] : []), asOf].join('-');
+    return ['bill-delay', kind, ...(congress ? [String(congress)] : []), type,
+      ...(ranged ? [`${from || 'start'}_${to || 'end'}`] : []), asOf].join('-');
   }
 
   /** RFC 4180 CSV: header row of the column keys, then one row per record; fields with a comma, quote, CR or LF are quoted
@@ -179,7 +222,7 @@
   }
 
   // Dual export: CommonJS for `node --test`, a window global for the page (see the header comment).
-  const api = { headerMetrics, histogramMax, binLags, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativePages, billLabel, ordinal, billUrl, longestLags, oldestWaiting, exportName, toCsv };
+  const api = { headerMetrics, histogramMax, binLags, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativePages, billLabel, ordinal, billUrl, longestLags, oldestWaiting, exportName, toCsv, typeOptions, congressLabel, defaultCongress, congressSeries };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else window.BillDelayMetrics = api;
 })();

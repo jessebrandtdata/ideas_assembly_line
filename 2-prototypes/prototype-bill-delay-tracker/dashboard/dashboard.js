@@ -1,9 +1,10 @@
 // Classic script, not an ES module: the page must open from disk, and Chromium blocks module
-// scripts on file:// pages. index.html loads metrics.js and ../data/delays.js before this file,
-// so both globals below exist by the time it runs.
+// scripts on file:// pages. index.html loads metrics.js and ../data/congresses.js (the index of
+// Congress folders) before this file; each Congress's own ../data/<n>/delays.js is added as a
+// <script> tag when it is first picked, which file:// pages allow where fetch() is blocked.
 'use strict';
 
-const { headerMetrics, binLags, histogramMax, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativePages, longestLags, oldestWaiting, billLabel, billUrl, ordinal, exportName, toCsv } = window.BillDelayMetrics;
+const { headerMetrics, binLags, histogramMax, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativePages, longestLags, oldestWaiting, billLabel, billUrl, ordinal, exportName, toCsv, typeOptions, congressLabel, defaultCongress, congressSeries } = window.BillDelayMetrics;
 
 // The Congressional Tech site's coverage colors (apps/site Dashboard.tsx): "has it" is the primary
 // blue, "missing it" is the gold. Here a bill that has its summary is blue, one still waiting is gold.
@@ -11,16 +12,17 @@ const BLUE = '#104378', GOLD = '#eec05e', INK = '#1b1b1b', MUTED = '#565c65';
 let fmt; // assigned in main() once d3 is known to be loaded
 const day = (v) => (v === null ? '–' : `${Math.round(v)}`);
 
-let congress = ''; // envelope's congress number, set in main()
-let asOf = ''; // envelope's as_of date (ISO)
+let congress = ''; // the Congress in view, set by showCongress()
+let asOf = ''; // that Congress's as_of date (ISO)
 
 // The page measures the introduced stage only. CRS writes summaries for introduced versions alone in
-// the 119th Congress (Congress.gov help, Bill Summaries, read 2026-10-16), so lag and "waiting" only
-// mean anything there; the later-stage exceptions CRS did write stay in the data (delays.csv, stage
-// column) and are counted in the caveat at the foot of the page. The proposal (IV.2) asks for no
-// breakdown by stage.
+// the 119th Congress (Congress.gov help, Bill Summaries, read 2026-10-16), and the introduced stage is
+// the one every Congress has, so it is the stage that compares across Congresses; later-stage summaries
+// stay in the data (delays.csv, stage column) and are counted in the caveat at the foot of the page.
+// The proposal (IV.2) asks for no breakdown by stage.
 const STAGE = 'introduced';
-const state = { records: [], summaryBefore: {}, stage: STAGE, type: 'all', range: { from: null, to: null }, includeWaiting: true, width: 30 };
+const state = { congresses: [], entry: null, congress: null, records: [], summaryBefore: {}, stage: STAGE, type: 'all',
+  range: { from: null, to: null }, includeWaiting: true, width: 30 };
 
 function card(label, value, note = '') {
   return `<div class="card"><div class="value">${value}</div><div class="label">${label}</div><div class="note">${note}</div></div>`;
@@ -29,8 +31,11 @@ function card(label, value, note = '') {
 function renderHeader(records, allEditions) {
   const m = headerMetrics(records);
   const r = headerMetrics(allEditions); // reported needs the reported-stage records, which the page otherwise ignores
+  const pagesCard = m.pagesCounted
+    ? card('pages of bill text', fmt(m.pagesTotal), `${fmt(m.pagesCounted)} of ${fmt(m.versions)} introduced versions counted`)
+    : card('pages of bill text', '–', 'no page counts collected for this Congress');
   document.getElementById('cards').innerHTML = [
-    card('pages of bill text', fmt(m.pagesTotal), `${fmt(m.pagesCounted)} of ${fmt(m.versions)} introduced versions counted`),
+    pagesCard,
     card('bills summarized', fmt(m.summarized), `${fmt(m.waiting)} still waiting`),
     card('reported by committee', fmt(r.reported), 'bills with an rh/rs text version'),
     card('mean lag (days)', day(m.lagMean), `n=${fmt(m.n)}`),
@@ -45,10 +50,21 @@ function renderPreText() {
     ? `${fmt(n)} introduced summaries exist for bills whose introduced text GovInfo has not posted.` : '';
 }
 
-/** The foot-of-page caveat's count of later-stage summaries, the CRS exceptions the page leaves out. */
-function renderExceptions(records) {
+/** The foot-of-page caveat's counts: later-stage summaries the page leaves out, and introduced summaries in view dated
+ *  after the Congress ended (re-publications or very late summaries, whose lag reads long), with that sentence hidden when
+ *  there are none. */
+function renderExceptions(records, introduced) {
   const n = records.filter((r) => r.stage !== null && r.stage !== STAGE && r.lag_days !== null).length;
   document.getElementById('exceptions').textContent = fmt(n);
+  const end = state.entry.end;
+  const late = introduced.filter((r) => r.summary_date !== null && r.summary_date > end).length;
+  document.getElementById('after-end-count').textContent = fmt(late);
+  document.getElementById('after-end-date').textContent = dayName(end);
+  document.getElementById('after-end').hidden = late === 0;
+  const e = state.entry;
+  document.getElementById('printed-fallback').hidden = !e.versions_without_ingest_date;
+  document.getElementById('printed-fallback-count').textContent = fmt(e.versions_without_ingest_date || 0);
+  document.getElementById('printed-fallback-total').textContent = fmt(e.text_versions || 0);
 }
 
 function renderHistogram(records, state) {
@@ -119,22 +135,40 @@ function renderHistogram(records, state) {
   }
 }
 
-const TYPES = [['all', 'All bill types'], ['hr', 'H.R.'], ['s', 'S.'], ['hjres', 'H.J.Res.'], ['sjres', 'S.J.Res.']];
+function options(list, value) {
+  return list.map(([v, text]) => `<option value="${esc(v)}"${v === value ? ' selected' : ''}>${esc(text)}</option>`).join('');
+}
 
-function select(id, label, options, value) {
-  return `<label>${label}<select id="${id}">${options.map(([v, text]) =>
-    `<option value="${v}"${v === value ? ' selected' : ''}>${text}</option>`).join('')}</select></label>`;
+function select(id, label, list, value) {
+  return `<label>${label}<select id="${id}">${options(list, value)}</select></label>`;
+}
+
+/** Point the per-Congress controls at the Congress in view: the bill types it has (keeping the current one when it has
+ *  it), and date pickers bounded by its first and last text date, cleared when they fall outside. */
+function refreshControls(state) {
+  const el = document.getElementById('controls');
+  const types = typeOptions(state.records);
+  if (!types.some(([v]) => v === state.type)) state.type = 'all';
+  el.querySelector('#type').innerHTML = options(types, state.type);
+  const { min, max } = dateBounds(state.records);
+  for (const input of [el.querySelector('#date-from'), el.querySelector('#date-to')]) {
+    input.min = min || ''; input.max = max || '';
+    if (input.value && (input.value < min || input.value > max)) input.value = '';
+  }
+  state.range = { from: el.querySelector('#date-from').value || null, to: el.querySelector('#date-to').value || null };
 }
 
 function renderControls(state) {
   const el = document.getElementById('controls');
-  if (el.children.length) return; // built once; inputs keep their own value
-  const { min, max } = dateBounds(state.records);
-  const dateInput = (id, label) => `<label>${label}<input type="date" id="${id}" min="${min}" max="${max}"></label>`;
-  el.innerHTML = select('type', 'Bill type', TYPES, state.type)
+  if (el.children.length) return; // built once; refreshControls() repoints it per Congress
+  const dateInput = (id, label) => `<label>${label}<input type="date" id="${id}"></label>`;
+  const congresses = state.congresses.map((e) => [String(e.congress), congressLabel(e)]);
+  el.innerHTML = select('congress', 'Congress', congresses, String(state.congress))
+    + select('type', 'Bill type', [['all', 'All types']], state.type)
     + dateInput('date-from', 'Text posted from') + dateInput('date-to', 'to')
     + '<button id="clear-dates" type="button">Clear date filters</button>';
   const from = el.querySelector('#date-from'), to = el.querySelector('#date-to');
+  el.querySelector('#congress').addEventListener('change', (e) => { showCongress(e.target.value).catch((err) => showError(err, true)); });
   el.querySelector('#type').addEventListener('change', (e) => { state.type = e.target.value; render(state); });
   const setRange = () => { state.range = { from: from.value || null, to: to.value || null }; render(state); };
   from.addEventListener('change', setRange);
@@ -159,7 +193,7 @@ const dayName = (d) => `${+d.slice(8, 10)} ${monthLabel(d)} ${d.slice(0, 4)}`;
 const activeRange = (r) => ((r.from || r.to) && !(r.from && r.to && r.from > r.to) ? r : null);
 const rangeLabel = (r) => {
   const a = activeRange(r);
-  if (!a) return 'Congress to date';
+  if (!a) return state.entry?.ended ? 'Whole Congress' : 'Congress to date';
   return a.from && a.to ? `${dayName(a.from)} – ${dayName(a.to)}` : a.from ? `from ${dayName(a.from)}` : `to ${dayName(a.to)}`;
 };
 const currentRecords = (state) => filterRecords(state.records, state);
@@ -207,6 +241,62 @@ function renderTimeseries(records, state) {
     .attr('y', (s) => yShare(s.summarized / (s.summarized + s.waiting || 1))).attr('height', (s) => topY + topH - yShare(s.summarized / (s.summarized + s.waiting || 1)));
   bars.append('title').text((s) => `${s.month}: ${fmt(s.summarized)} summarized, ${fmt(s.waiting)} waiting`);
   monthAxis(topY + topH + 14);
+}
+
+/** Every Congress in the index side by side: the share of introduced bills with a CRS summary (top) and the median days
+ *  from the printed date to the summary (bottom), for the bill type in view. The Congress in view is outlined. */
+function renderByCongress(state) {
+  const series = congressSeries(state.congresses, state.type);
+  const fig = d3.select('#by-congress .chart').html('');
+  if (series.length < 2) { // one Congress is not a comparison; the rest of the page already shows it
+    fig.append('p').attr('class', 'note').text(series.length ? 'Collect more Congresses (collect_warehouse.py --congress all) to compare them here.' : '');
+    return;
+  }
+  const W = 920, left = 76, right = 16, topY = 58, topH = 120, gap = 40, lowH = 130, H = topY + topH + gap + lowH + 44;
+  const lowY = topY + topH + gap;
+  const svg = fig.append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
+    .attr('aria-label', 'Share of introduced bills with a CRS summary and median lag, by Congress');
+  svg.append('text').attr('x', left).attr('y', 18).attr('font-size', 14).attr('font-weight', 600).attr('fill', INK)
+    .text('Introduced bills by Congress: share with a CRS summary, and median days to it.');
+  svg.append('text').attr('x', left).attr('y', 36).attr('font-size', 12).attr('fill', MUTED)
+    .text('Measured from the date printed on the bill in every Congress, so the Congresses line up. Follows the bill type filter, not the dates.');
+  const x = d3.scaleBand().domain(series.map((s) => s.congress)).range([left, W - right]).padding(0.18);
+  const yShare = d3.scaleLinear().domain([0, 1]).range([topY + topH, topY]);
+  const yLag = d3.scaleLinear().domain([0, d3.max(series, (s) => s.median ?? 0) || 1]).nice().range([lowY + lowH, lowY]);
+  svg.append('g').attr('transform', `translate(${left},0)`).call(d3.axisLeft(yShare).ticks(4).tickFormat(d3.format('.0%'))).call((g) => g.select('.domain').remove());
+  svg.append('g').attr('transform', `translate(${left},0)`).call(d3.axisLeft(yLag).ticks(4).tickFormat(fmt)).call((g) => g.select('.domain').remove());
+  svg.append('text').attr('transform', `translate(14,${topY + topH / 2}) rotate(-90)`).attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK).text('share summarized');
+  svg.append('text').attr('transform', `translate(14,${lowY + lowH / 2}) rotate(-90)`).attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK).text('median days');
+  const tip = (s) => `${ordinal(s.congress)} Congress${s.ended ? '' : ' (in session)'}: ${fmt(s.bills)} introduced, ${fmt(s.summarized)} summarized `
+    + `(${d3.format('.0%')(s.share)}), median ${s.median === null ? '–' : Math.round(s.median)} days`
+    + (s.afterEnd ? `; ${fmt(s.afterEnd)} summaries dated after the Congress ended` : '');
+  const bars = svg.append('g').selectAll('g').data(series).join('g').attr('class', 'congress-bar');
+  bars.append('rect').attr('x', (s) => x(s.congress)).attr('width', x.bandwidth()).attr('fill', GOLD)
+    .attr('y', topY).attr('height', (s) => yShare(s.share) - topY);
+  bars.append('rect').attr('x', (s) => x(s.congress)).attr('width', x.bandwidth()).attr('fill', BLUE)
+    .attr('y', (s) => yShare(s.share)).attr('height', (s) => topY + topH - yShare(s.share));
+  bars.filter((s) => s.median !== null).append('rect').attr('x', (s) => x(s.congress)).attr('width', x.bandwidth()).attr('fill', BLUE).attr('rx', 2)
+    .attr('y', (s) => yLag(s.median)).attr('height', (s) => lowY + lowH - yLag(s.median));
+  bars.filter((s) => s.median !== null).append('text').attr('x', (s) => x(s.congress) + x.bandwidth() / 2).attr('y', (s) => yLag(s.median) - 4)
+    .attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK).text((s) => Math.round(s.median));
+  bars.append('text').attr('x', (s) => x(s.congress) + x.bandwidth() / 2).attr('y', lowY + lowH + 16)
+    .attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK)
+    .attr('font-weight', (s) => (s.congress === String(state.congress) ? 700 : 400)).text((s) => ordinal(s.congress));
+  bars.append('title').text(tip);
+  bars.on('mousemove', (event, s) => {
+    d3.select('#tooltip').style('display', 'block').style('left', `${event.pageX + 12}px`).style('top', `${event.pageY - 10}px`).text(tip(s));
+  }).on('mouseleave', () => d3.select('#tooltip').style('display', 'none'));
+  const cur = series.find((s) => s.congress === String(state.congress));
+  if (cur) {
+    svg.append('rect').attr('id', 'congress-current').attr('x', x(cur.congress) - 3).attr('y', topY - 4).attr('width', x.bandwidth() + 6)
+      .attr('height', lowY + lowH - topY + 8).attr('fill', 'none').attr('stroke', INK).attr('stroke-width', 1.5).attr('rx', 3);
+  }
+  const legend = svg.append('g').attr('transform', `translate(${W - right - 190},${topY - 14})`);
+  for (const [i, [color, label]] of [[BLUE, 'has a summary'], [GOLD, 'still waiting']].entries()) {
+    legend.append('rect').attr('x', i * 100).attr('y', 0).attr('width', 10).attr('height', 10).attr('rx', 2).attr('fill', color);
+    legend.append('text').attr('x', i * 100 + 14).attr('y', 9).attr('font-size', 11).attr('fill', INK).text(label);
+  }
+  svg.append('text').attr('x', (left + W - right) / 2).attr('y', H - 6).attr('font-size', 11).attr('text-anchor', 'middle').attr('fill', INK).text('Congress');
 }
 
 function renderCumulative(target, series, keys, labels, title, yLabel, note = '') {
@@ -370,7 +460,8 @@ function render(state) {
   const allEditions = filterRecords(state.records, { stage: 'all', type: state.type, range: state.range });
   renderHeader(records, allEditions);
   renderPreText();
-  renderExceptions(allEditions);
+  renderExceptions(allEditions, records);
+  renderByCongress(state);
   renderLists(records);
   renderHistogram(records, state);
   renderTimeseries(unranged, state);
@@ -384,34 +475,83 @@ function render(state) {
     [uncounted ? `${fmt(uncounted)} versions not yet page-counted.` : '', 'Pages of introduced text versions.'].filter(Boolean).join(' '));
 }
 
-function main() {
+/** A Congress's document: already loaded, or added now as a <script> tag for ../data/<n>/delays.js, which puts it on
+ *  window.BILL_DELAYS under its number. A tag rather than fetch() so the page still works opened from disk. */
+function loadCongress(entry) {
+  const key = String(entry.congress);
+  const have = () => window.BILL_DELAYS?.[key];
+  if (have()) return Promise.resolve(have());
+  return new Promise((resolve, reject) => {
+    const tag = document.createElement('script');
+    tag.src = `../data/${entry.file}`;
+    tag.onload = () => (have() ? resolve(have()) : reject(new Error(`${entry.file} did not define Congress ${key}`)));
+    tag.onerror = () => reject(new Error(`data/${entry.file} not found`));
+    document.head.appendChild(tag);
+  });
+}
+
+let showing = 0; // the latest showCongress() call; an earlier load that lands late is dropped
+async function showCongress(n) {
+  const ticket = ++showing;
+  const entry = state.congresses.find((e) => String(e.congress) === String(n));
+  if (!entry) throw new Error(`Congress ${n} is not in data/congresses.js`);
+  const select = document.getElementById('congress');
+  if (select) select.disabled = true;
+  try {
+    const doc = await loadCongress(entry);
+    if (ticket !== showing) return;
+    if (!Array.isArray(doc.records)) throw new Error(`${entry.file} has no records array`);
+    state.entry = entry;
+    state.congress = String(entry.congress);
+    state.records = doc.records;
+    state.summaryBefore = doc.summary_before_text || {};
+    congress = state.congress;
+    asOf = doc.as_of;
+    const intro = doc.introduced_versions || 0, printedOnly = doc.introduced_without_ingest_date || 0;
+    const start = printedOnly === 0 ? 'the day the text reached GovInfo'
+      : printedOnly === intro ? 'the date printed on the bill (no GovInfo posting dates collected for this Congress)'
+        : `the day the text reached GovInfo, or the printed date for ${fmt(printedOnly)} of ${fmt(intro)} introduced versions`;
+    document.getElementById('subtitle').textContent =
+      `Lag between a bill text version and its CRS summary on Congress.gov, ${congressLabel(entry)}, as of ${doc.as_of}. Measured from ${start}.`;
+    renderControls(state);
+    refreshControls(state);
+    render(state);
+  } finally {
+    if (select && ticket === showing) select.disabled = false;
+  }
+}
+
+async function main() {
   try {
     if (typeof d3 === 'undefined') throw new Error('d3 failed to load');
     fmt = d3.format(',');
-    // The data arrives as window.BILL_DELAYS from ../data/delays.js, which delays.py writes next to
-    // delays.json so the page can load it from disk (fetch() is blocked on file:// pages).
-    const doc = window.BILL_DELAYS;
-    if (!doc) throw new Error('data/delays.js not found');
-    if (!Array.isArray(doc.records)) throw new Error('delays.js has no records array');
-    state.records = doc.records;
-    congress = doc.congress;
-    asOf = doc.as_of;
-    state.summaryBefore = doc.summary_before_text || {};
-    document.getElementById('subtitle').textContent =
-      `Lag between a bill text version appearing on GovInfo and its CRS summary on Congress.gov, ${ordinal(doc.congress)} Congress, as of ${doc.as_of}.`;
+    // The index arrives as window.BILL_DELAY_CONGRESSES from ../data/congresses.js, which delays.py
+    // writes next to congresses.json so the page can load it from disk (fetch() is blocked on file:// pages).
+    const index = window.BILL_DELAY_CONGRESSES;
+    if (!index) throw new Error('data/congresses.js not found');
+    if (!Array.isArray(index.congresses)) throw new Error('congresses.js has no congresses list');
+    state.congresses = index.congresses;
+    const first = defaultCongress(state.congresses);
+    if (first === null) throw new Error('no Congress in data/congresses.js has an introduced bill');
+    state.congress = String(first);
     setupExports();
-    render(state);
+    await showCongress(first);
   } catch (err) {
-    document.getElementById('controls').innerHTML = '';
-    document.querySelectorAll('figure .chart, #hist-chart, .table-wrap').forEach((f) => { f.innerHTML = ''; });
-    document.getElementById('pre-text').textContent = '';
-    const cards = document.getElementById('cards');
-    cards.innerHTML = '';
-    const p = document.createElement('p');
-    p.className = 'error';
-    p.textContent = `Could not load the data (${err.message}). Run delays.py first.`;
-    cards.appendChild(p);
+    showError(err, false);
   }
+}
+
+/** Empty the page and say what failed. keepControls leaves the Congress picker up so another Congress can be tried. */
+function showError(err, keepControls) {
+  if (!keepControls) document.getElementById('controls').innerHTML = '';
+  document.querySelectorAll('figure .chart, #hist-chart, .table-wrap').forEach((f) => { f.innerHTML = ''; });
+  document.getElementById('pre-text').textContent = '';
+  const cards = document.getElementById('cards');
+  cards.innerHTML = '';
+  const p = document.createElement('p');
+  p.className = 'error';
+  p.textContent = `Could not load the data (${err.message}). Run delays.py first.`;
+  cards.appendChild(p);
 }
 
 main();

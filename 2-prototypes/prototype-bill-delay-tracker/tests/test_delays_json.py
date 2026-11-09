@@ -13,17 +13,66 @@ PROTO = HERE.parent
 class DelaysJson(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.tmp = Path(tempfile.mkdtemp())
+        cls.root = Path(tempfile.mkdtemp())
+        cls.tmp = cls.root / "119"
+        cls.tmp.mkdir()
         for name in ("versions.csv", "pages.csv", "summaries.csv", "ingest.csv"):
-            shutil.copy(HERE / "fixture" / name, cls.tmp / name)
-        subprocess.run([sys.executable, str(PROTO / "delays.py"), "--data-dir", str(cls.tmp),
+            shutil.copy(HERE / "fixture" / "119" / name, cls.tmp / name)
+        # a second, ended Congress with no pages or ingest dates, written here
+        old = cls.root / "118"
+        old.mkdir()
+        (old / "versions.csv").write_text(
+            "package_id,congress,bill_type,number,version,date_issued,last_modified,title\n"
+            "BILLS-118hr1ih,118,hr,1,ih,2023-01-09,,One\n"
+            "BILLS-118hr2ih,118,hr,2,ih,2023-01-10,,Two\n"
+            "BILLS-118hres3ih,118,hres,3,ih,2023-02-01,,Three\n"
+            "BILLS-118s4is,118,s,4,is,,,Undated\n")
+        (old / "summaries.csv").write_text(
+            "congress,bill_type,number,version_code,action_desc,action_date,update_date,current_chapter,last_summary_update_date\n"
+            "118,hr,1,00,Introduced in House,2023-01-09,2023-01-29T00:00:00Z,,2023-01-29T00:00:00Z\n"
+            "118,hres,3,00,Introduced in House,2023-02-01,2025-02-01T00:00:00Z,,2025-02-01T00:00:00Z\n")
+        subprocess.run([sys.executable, str(PROTO / "delays.py"), "--data-dir", str(cls.root),
                         "--as-of", "2026-10-14"], check=True, capture_output=True)
         cls.doc = json.loads((cls.tmp / "delays.json").read_text())
         cls.records = cls.doc["records"]
+        cls.old = json.loads((old / "stats.json").read_text())
+        cls.index = json.loads((cls.root / "congresses.json").read_text())["congresses"]
 
     @classmethod
     def tearDownClass(cls):
-        shutil.rmtree(cls.tmp)
+        shutil.rmtree(cls.root)
+
+    def test_index_lists_every_congress_newest_first(self):
+        self.assertEqual([e["congress"] for e in self.index], ["119", "118"])
+        e = self.index[1]
+        self.assertEqual((e["start"], e["end"], e["ended"]), ("2023-01-03", "2025-01-02", True))
+        self.assertFalse(self.index[0]["ended"])
+        self.assertEqual(e["file"], "118/delays.js")
+
+    def test_index_script_matches_the_json(self):
+        js = (self.root / "congresses.js").read_text()
+        body = js[js.index("JSON.parse(") + len("JSON.parse("):js.rindex(")")]
+        self.assertEqual(json.loads(json.loads(body))["congresses"], self.index)
+
+    def test_delays_js_registers_under_its_congress(self):
+        js = (self.root / "118" / "delays.js").read_text()
+        self.assertIn('(window.BILL_DELAYS = window.BILL_DELAYS || {})["118"] = JSON.parse(', js)
+
+    def test_comparison_measures_from_the_printed_date_per_type(self):
+        c = self.old["comparison"]
+        self.assertEqual(c["all"]["introduced_bills"], 3)  # the undated s4 is left out
+        self.assertEqual(c["all"]["introduced_summarized"], 2)
+        self.assertEqual(c["hr"]["median_lag_printed"], 20)  # 2023-01-09 to 2023-01-29
+        self.assertEqual(c["hres"]["introduced_bills"], 1)
+        self.assertEqual(c["all"]["summaries_after_end"], 1)  # hres 3, dated after 2025-01-02
+
+    def test_undated_versions_are_counted_not_measured(self):
+        self.assertEqual(self.old["versions_without_date"], 1)
+        self.assertEqual(self.old["text_versions"], 3)
+        self.assertEqual(self.old["versions_without_ingest_date"], 3)
+
+    def test_bill_types_listed_from_the_data(self):
+        self.assertEqual(sorted(self.old["bill_types"]), ["hr", "hres"])
 
     def test_envelope(self):
         self.assertEqual(self.doc["as_of"], "2026-10-14")
@@ -71,6 +120,8 @@ class DelaysJson(unittest.TestCase):
 
     def test_envelope_counts_versions_without_ingest_date(self):
         self.assertEqual(self.doc["versions_without_ingest_date"], 0)
+        self.assertEqual(self.doc["introduced_without_ingest_date"], 0)
+        self.assertEqual(self.doc["versions_without_date"], 0)
 
     def test_waiting_record_has_nulls(self):
         r = next(r for r in self.records if r["number"] == "10779")

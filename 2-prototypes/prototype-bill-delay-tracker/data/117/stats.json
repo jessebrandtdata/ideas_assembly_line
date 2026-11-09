@@ -1,0 +1,394 @@
+{
+ "as_of": "2026-11-09",
+ "computed_at": "2026-11-09T08:33:36+00:00",
+ "congress": "117",
+ "start": "2021-01-03",
+ "end": "2023-01-02",
+ "ended": true,
+ "bill_types": [
+  "hr",
+  "s",
+  "hres",
+  "sres",
+  "hconres",
+  "hjres",
+  "sjres",
+  "sconres"
+ ],
+ "bills_with_text": 17817,
+ "text_versions": 21031,
+ "versions_without_date": 393,
+ "versions_without_ingest_date": 21031,
+ "bills_summarized": 17809,
+ "bills_reported_by_committee": 1156,
+ "introduced_with_summary": 17082,
+ "introduced_awaiting_summary": 8,
+ "pages": {
+  "versions_with_count": 0,
+  "versions_total": 21031,
+  "total": 0,
+  "mean": null
+ },
+ "delay_days": {
+  "n": 19257,
+  "mean": 139.7,
+  "median": 94,
+  "max": 940
+ },
+ "by_stage": {
+  "introduced": {
+   "n": 17082,
+   "mean": 146.7,
+   "median": 103.0,
+   "max": 940,
+   "min": 1
+  },
+  "reported": {
+   "n": 997,
+   "mean": 99.0,
+   "median": 35,
+   "max": 797,
+   "min": -163
+  },
+  "passed": {
+   "n": 1178,
+   "mean": 71.5,
+   "median": 21.0,
+   "max": 939,
+   "min": 0
+  }
+ },
+ "introduced_histogram": [
+  {
+   "from": 0,
+   "to": 7,
+   "count": 560
+  },
+  {
+   "from": 7,
+   "to": 14,
+   "count": 765
+  },
+  {
+   "from": 14,
+   "to": 30,
+   "count": 1517
+  },
+  {
+   "from": 30,
+   "to": 60,
+   "count": 3139
+  },
+  {
+   "from": 60,
+   "to": 90,
+   "count": 1851
+  },
+  {
+   "from": 90,
+   "to": 180,
+   "count": 3998
+  },
+  {
+   "from": 180,
+   "to": 365,
+   "count": 3756
+  },
+  {
+   "from": 365,
+   "to": null,
+   "count": 1496
+  }
+ ],
+ "awaiting_histogram": [
+  {
+   "from": 0,
+   "to": 7,
+   "count": 0
+  },
+  {
+   "from": 7,
+   "to": 14,
+   "count": 0
+  },
+  {
+   "from": 14,
+   "to": 30,
+   "count": 0
+  },
+  {
+   "from": 30,
+   "to": 60,
+   "count": 0
+  },
+  {
+   "from": 60,
+   "to": 90,
+   "count": 0
+  },
+  {
+   "from": 90,
+   "to": 180,
+   "count": 0
+  },
+  {
+   "from": 180,
+   "to": 365,
+   "count": 0
+  },
+  {
+   "from": 365,
+   "to": null,
+   "count": 8
+  }
+ ],
+ "monthly_introduced": [
+  {
+   "month": "2021-01",
+   "summarized": 846,
+   "awaiting": 0,
+   "median_lag": 36.0,
+   "p90_lag": 131
+  },
+  {
+   "month": "2021-02",
+   "summarized": 1305,
+   "awaiting": 0,
+   "median_lag": 42,
+   "p90_lag": 154
+  },
+  {
+   "month": "2021-03",
+   "summarized": 1591,
+   "awaiting": 0,
+   "median_lag": 75,
+   "p90_lag": 189
+  },
+  {
+   "month": "2021-04",
+   "summarized": 1245,
+   "awaiting": 0,
+   "median_lag": 105,
+   "p90_lag": 278
+  },
+  {
+   "month": "2021-05",
+   "summarized": 1240,
+   "awaiting": 0,
+   "median_lag": 147.0,
+   "p90_lag": 293
+  },
+  {
+   "month": "2021-06",
+   "summarized": 1083,
+   "awaiting": 2,
+   "median_lag": 162,
+   "p90_lag": 363
+  },
+  {
+   "month": "2021-07",
+   "summarized": 953,
+   "awaiting": 0,
+   "median_lag": 160,
+   "p90_lag": 382
+  },
+  {
+   "month": "2021-08",
+   "summarized": 429,
+   "awaiting": 0,
+   "median_lag": 148,
+   "p90_lag": 376
+  },
+  {
+   "month": "2021-09",
+   "summarized": 644,
+   "awaiting": 0,
+   "median_lag": 129.0,
+   "p90_lag": 341
+  },
+  {
+   "month": "2021-10",
+   "summarized": 583,
+   "awaiting": 0,
+   "median_lag": 141,
+   "p90_lag": 327
+  },
+  {
+   "month": "2021-11",
+   "summarized": 569,
+   "awaiting": 0,
+   "median_lag": 135,
+   "p90_lag": 364
+  },
+  {
+   "month": "2021-12",
+   "summarized": 439,
+   "awaiting": 0,
+   "median_lag": 139,
+   "p90_lag": 562
+  },
+  {
+   "month": "2022-01",
+   "summarized": 294,
+   "awaiting": 2,
+   "median_lag": 112.5,
+   "p90_lag": 555
+  },
+  {
+   "month": "2022-02",
+   "summarized": 603,
+   "awaiting": 0,
+   "median_lag": 105,
+   "p90_lag": 540
+  },
+  {
+   "month": "2022-03",
+   "summarized": 857,
+   "awaiting": 0,
+   "median_lag": 110,
+   "p90_lag": 504
+  },
+  {
+   "month": "2022-04",
+   "summarized": 498,
+   "awaiting": 1,
+   "median_lag": 107.5,
+   "p90_lag": 487
+  },
+  {
+   "month": "2022-05",
+   "summarized": 611,
+   "awaiting": 1,
+   "median_lag": 99,
+   "p90_lag": 456
+  },
+  {
+   "month": "2022-06",
+   "summarized": 556,
+   "awaiting": 1,
+   "median_lag": 117.0,
+   "p90_lag": 428
+  },
+  {
+   "month": "2022-07",
+   "summarized": 680,
+   "awaiting": 0,
+   "median_lag": 121.5,
+   "p90_lag": 402
+  },
+  {
+   "month": "2022-08",
+   "summarized": 260,
+   "awaiting": 0,
+   "median_lag": 128.5,
+   "p90_lag": 385
+  },
+  {
+   "month": "2022-09",
+   "summarized": 772,
+   "awaiting": 0,
+   "median_lag": 120.0,
+   "p90_lag": 345
+  },
+  {
+   "month": "2022-10",
+   "summarized": 187,
+   "awaiting": 0,
+   "median_lag": 165,
+   "p90_lag": 325
+  },
+  {
+   "month": "2022-11",
+   "summarized": 257,
+   "awaiting": 1,
+   "median_lag": 257,
+   "p90_lag": 295
+  },
+  {
+   "month": "2022-12",
+   "summarized": 575,
+   "awaiting": 0,
+   "median_lag": 243,
+   "p90_lag": 274
+  },
+  {
+   "month": "2023-01",
+   "summarized": 5,
+   "awaiting": 0,
+   "median_lag": 239,
+   "p90_lag": 289
+  }
+ ],
+ "comparison": {
+  "all": {
+   "introduced_bills": 17090,
+   "introduced_summarized": 17082,
+   "summaries_after_end": 2520,
+   "median_lag_printed": 103.0,
+   "p90_lag_printed": 344
+  },
+  "hr": {
+   "introduced_bills": 9663,
+   "introduced_summarized": 9657,
+   "summaries_after_end": 1461,
+   "median_lag_printed": 112,
+   "p90_lag_printed": 349
+  },
+  "hres": {
+   "introduced_bills": 1375,
+   "introduced_summarized": 1374,
+   "summaries_after_end": 140,
+   "median_lag_printed": 50.0,
+   "p90_lag_printed": 257
+  },
+  "hjres": {
+   "introduced_bills": 106,
+   "introduced_summarized": 106,
+   "summaries_after_end": 8,
+   "median_lag_printed": 25.0,
+   "p90_lag_printed": 149
+  },
+  "s": {
+   "introduced_bills": 5246,
+   "introduced_summarized": 5245,
+   "summaries_after_end": 841,
+   "median_lag_printed": 117,
+   "p90_lag_printed": 376
+  },
+  "sjres": {
+   "introduced_bills": 68,
+   "introduced_summarized": 68,
+   "summaries_after_end": 10,
+   "median_lag_printed": 39.0,
+   "p90_lag_printed": 251
+  },
+  "sres": {
+   "introduced_bills": 484,
+   "introduced_summarized": 484,
+   "summaries_after_end": 40,
+   "median_lag_printed": 55.0,
+   "p90_lag_printed": 185
+  },
+  "hconres": {
+   "introduced_bills": 116,
+   "introduced_summarized": 116,
+   "summaries_after_end": 15,
+   "median_lag_printed": 53.5,
+   "p90_lag_printed": 255
+  },
+  "sconres": {
+   "introduced_bills": 32,
+   "introduced_summarized": 32,
+   "summaries_after_end": 5,
+   "median_lag_printed": 69.5,
+   "p90_lag_printed": 343
+  }
+ },
+ "summaries_collected": 21261,
+ "caveats": [
+  "delay = summary date minus the day GovInfo took the text in, or minus the printed date where no ingest date was collected; the comparison block measures from the printed date throughout",
+  "the summary date is the first retained publication; summaries first captured before the warehouse kept revisions carry their latest revision, which can be a re-publication",
+  "'awaiting' means no introduced-stage summary appears in the summaries collected so far",
+  "page counts come from GovInfo package summaries, one call per version, and may cover only a sample"
+ ]
+}

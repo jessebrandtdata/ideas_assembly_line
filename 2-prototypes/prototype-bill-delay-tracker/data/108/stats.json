@@ -1,0 +1,387 @@
+{
+ "as_of": "2026-11-09",
+ "computed_at": "2026-11-09T08:33:46+00:00",
+ "congress": "108",
+ "start": "2003-01-03",
+ "end": "2005-01-02",
+ "ended": true,
+ "bill_types": [
+  "hr",
+  "s",
+  "hres",
+  "hconres",
+  "sres",
+  "sconres",
+  "hjres",
+  "sjres"
+ ],
+ "bills_with_text": 10667,
+ "text_versions": 14778,
+ "versions_without_date": 591,
+ "versions_without_ingest_date": 14778,
+ "bills_summarized": 10667,
+ "bills_reported_by_committee": 1268,
+ "introduced_with_summary": 9909,
+ "introduced_awaiting_summary": 0,
+ "pages": {
+  "versions_with_count": 0,
+  "versions_total": 14778,
+  "total": 0,
+  "mean": null
+ },
+ "delay_days": {
+  "n": 12538,
+  "mean": 511.0,
+  "median": 98.0,
+  "max": 4963
+ },
+ "by_stage": {
+  "introduced": {
+   "n": 9909,
+   "mean": 564.8,
+   "median": 119,
+   "max": 4963,
+   "min": -3170
+  },
+  "reported": {
+   "n": 1090,
+   "mean": 337.4,
+   "median": 67.0,
+   "max": 4954,
+   "min": -140
+  },
+  "passed": {
+   "n": 1539,
+   "mean": 287.7,
+   "median": 52,
+   "max": 4802,
+   "min": -202
+  }
+ },
+ "introduced_histogram": [
+  {
+   "from": 0,
+   "to": 7,
+   "count": 238
+  },
+  {
+   "from": 7,
+   "to": 14,
+   "count": 389
+  },
+  {
+   "from": 14,
+   "to": 30,
+   "count": 979
+  },
+  {
+   "from": 30,
+   "to": 60,
+   "count": 1491
+  },
+  {
+   "from": 60,
+   "to": 90,
+   "count": 1173
+  },
+  {
+   "from": 90,
+   "to": 180,
+   "count": 1191
+  },
+  {
+   "from": 180,
+   "to": 365,
+   "count": 636
+  },
+  {
+   "from": 365,
+   "to": null,
+   "count": 3810
+  }
+ ],
+ "awaiting_histogram": [
+  {
+   "from": 0,
+   "to": 7,
+   "count": 0
+  },
+  {
+   "from": 7,
+   "to": 14,
+   "count": 0
+  },
+  {
+   "from": 14,
+   "to": 30,
+   "count": 0
+  },
+  {
+   "from": 30,
+   "to": 60,
+   "count": 0
+  },
+  {
+   "from": 60,
+   "to": 90,
+   "count": 0
+  },
+  {
+   "from": 90,
+   "to": 180,
+   "count": 0
+  },
+  {
+   "from": 180,
+   "to": 365,
+   "count": 0
+  },
+  {
+   "from": 365,
+   "to": null,
+   "count": 0
+  }
+ ],
+ "monthly_introduced": [
+  {
+   "month": "2003-01",
+   "summarized": 859,
+   "awaiting": 0,
+   "median_lag": 1420,
+   "p90_lag": 1421
+  },
+  {
+   "month": "2003-02",
+   "summarized": 895,
+   "awaiting": 0,
+   "median_lag": 1384,
+   "p90_lag": 1392
+  },
+  {
+   "month": "2003-03",
+   "summarized": 875,
+   "awaiting": 0,
+   "median_lag": 1352,
+   "p90_lag": 1364
+  },
+  {
+   "month": "2003-04",
+   "summarized": 670,
+   "awaiting": 0,
+   "median_lag": 1328.0,
+   "p90_lag": 1336
+  },
+  {
+   "month": "2003-05",
+   "summarized": 665,
+   "awaiting": 0,
+   "median_lag": 1287,
+   "p90_lag": 1307
+  },
+  {
+   "month": "2003-06",
+   "summarized": 683,
+   "awaiting": 0,
+   "median_lag": 121,
+   "p90_lag": 1268
+  },
+  {
+   "month": "2003-07",
+   "summarized": 579,
+   "awaiting": 0,
+   "median_lag": 61,
+   "p90_lag": 237
+  },
+  {
+   "month": "2003-08",
+   "summarized": 19,
+   "awaiting": 0,
+   "median_lag": 76,
+   "p90_lag": 230
+  },
+  {
+   "month": "2003-09",
+   "summarized": 399,
+   "awaiting": 0,
+   "median_lag": 36,
+   "p90_lag": 198
+  },
+  {
+   "month": "2003-10",
+   "summarized": 421,
+   "awaiting": 0,
+   "median_lag": 47,
+   "p90_lag": 190
+  },
+  {
+   "month": "2003-11",
+   "summarized": 462,
+   "awaiting": 0,
+   "median_lag": 78.0,
+   "p90_lag": 175
+  },
+  {
+   "month": "2003-12",
+   "summarized": 89,
+   "awaiting": 0,
+   "median_lag": 67,
+   "p90_lag": 142
+  },
+  {
+   "month": "2004-01",
+   "summarized": 117,
+   "awaiting": 0,
+   "median_lag": 23,
+   "p90_lag": 80
+  },
+  {
+   "month": "2004-02",
+   "summarized": 281,
+   "awaiting": 0,
+   "median_lag": 34,
+   "p90_lag": 108
+  },
+  {
+   "month": "2004-03",
+   "summarized": 430,
+   "awaiting": 0,
+   "median_lag": 47.0,
+   "p90_lag": 138
+  },
+  {
+   "month": "2004-04",
+   "summarized": 317,
+   "awaiting": 0,
+   "median_lag": 47,
+   "p90_lag": 104
+  },
+  {
+   "month": "2004-05",
+   "summarized": 387,
+   "awaiting": 0,
+   "median_lag": 44,
+   "p90_lag": 117
+  },
+  {
+   "month": "2004-06",
+   "summarized": 479,
+   "awaiting": 0,
+   "median_lag": 62,
+   "p90_lag": 113
+  },
+  {
+   "month": "2004-07",
+   "summarized": 467,
+   "awaiting": 0,
+   "median_lag": 64,
+   "p90_lag": 109
+  },
+  {
+   "month": "2004-09",
+   "summarized": 371,
+   "awaiting": 0,
+   "median_lag": 38,
+   "p90_lag": 83
+  },
+  {
+   "month": "2004-10",
+   "summarized": 290,
+   "awaiting": 0,
+   "median_lag": 53.0,
+   "p90_lag": 87
+  },
+  {
+   "month": "2004-11",
+   "summarized": 133,
+   "awaiting": 0,
+   "median_lag": 31,
+   "p90_lag": 66
+  },
+  {
+   "month": "2004-12",
+   "summarized": 20,
+   "awaiting": 0,
+   "median_lag": 29.0,
+   "p90_lag": 66
+  },
+  {
+   "month": "2013-07",
+   "summarized": 1,
+   "awaiting": 0,
+   "median_lag": -3170,
+   "p90_lag": -3170
+  }
+ ],
+ "comparison": {
+  "all": {
+   "introduced_bills": 9909,
+   "introduced_summarized": 9909,
+   "summaries_after_end": 3897,
+   "median_lag_printed": 119,
+   "p90_lag_printed": 1392
+  },
+  "s": {
+   "introduced_bills": 2874,
+   "introduced_summarized": 2874,
+   "summaries_after_end": 1091,
+   "median_lag_printed": 119.0,
+   "p90_lag_printed": 1392
+  },
+  "sres": {
+   "introduced_bills": 260,
+   "introduced_summarized": 260,
+   "summaries_after_end": 92,
+   "median_lag_printed": 81.5,
+   "p90_lag_printed": 1392
+  },
+  "hr": {
+   "introduced_bills": 5394,
+   "introduced_summarized": 5394,
+   "summaries_after_end": 2218,
+   "median_lag_printed": 145.0,
+   "p90_lag_printed": 1392
+  },
+  "hres": {
+   "introduced_bills": 616,
+   "introduced_summarized": 616,
+   "summaries_after_end": 199,
+   "median_lag_printed": 52.0,
+   "p90_lag_printed": 1372
+  },
+  "sconres": {
+   "introduced_bills": 110,
+   "introduced_summarized": 110,
+   "summaries_after_end": 35,
+   "median_lag_printed": 70.5,
+   "p90_lag_printed": 1364
+  },
+  "hconres": {
+   "introduced_bills": 506,
+   "introduced_summarized": 506,
+   "summaries_after_end": 191,
+   "median_lag_printed": 102.5,
+   "p90_lag_printed": 1370
+  },
+  "hjres": {
+   "introduced_bills": 111,
+   "introduced_summarized": 111,
+   "summaries_after_end": 59,
+   "median_lag_printed": 1286,
+   "p90_lag_printed": 1420
+  },
+  "sjres": {
+   "introduced_bills": 38,
+   "introduced_summarized": 38,
+   "summaries_after_end": 12,
+   "median_lag_printed": 81.0,
+   "p90_lag_printed": 1405
+  }
+ },
+ "summaries_collected": 14833,
+ "caveats": [
+  "delay = summary date minus the day GovInfo took the text in, or minus the printed date where no ingest date was collected; the comparison block measures from the printed date throughout",
+  "the summary date is the first retained publication; summaries first captured before the warehouse kept revisions carry their latest revision, which can be a re-publication",
+  "'awaiting' means no introduced-stage summary appears in the summaries collected so far",
+  "page counts come from GovInfo package summaries, one call per version, and may cover only a sample"
+ ]
+}

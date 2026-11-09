@@ -1,0 +1,21 @@
+{
+ "source": "https://data.spicygov.ai",
+ "family": "bill-family",
+ "prefix": "generations/bill-family/9ce5ef361d5764d081f8c7a8057f7c40512bdb69c81f627be5b3bccb2966cb7a",
+ "published_at": "2026-11-08T04:15:57Z",
+ "artifact_digest": "sha256:9ce5ef361d5764d081f8c7a8057f7c40512bdb69c81f627be5b3bccb2966cb7a",
+ "congress": "111",
+ "bill_types": [
+  "hr",
+  "s",
+  "hjres",
+  "sjres",
+  "hconres",
+  "sconres",
+  "hres",
+  "sres"
+ ],
+ "versions": 18224,
+ "summaries": 17483,
+ "summaries_with_retained_revisions": 0
+}
