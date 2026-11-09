@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 // ES modules are blocked), so it arrives here as one default object.
 import metrics from './metrics.js';
 
-const { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativePages, histogramMax, dateBounds, longestLags, oldestWaiting, billLabel, billUrl, ordinal, exportName, toCsv, typeOptions, congressLabel, defaultCongress, congressSeries, mergeCongresses, allCongressesLabel } = metrics;
+const { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativeSize, measureOptions, histogramMax, dateBounds, longestLags, oldestWaiting, billLabel, billUrl, ordinal, exportName, toCsv, typeOptions, congressLabel, defaultCongress, congressSeries, mergeCongresses, allCongressesLabel } = metrics;
 
 const rec = (o) => ({ type: 'hr', number: '1', stage: 'introduced', text_date: '2025-01-10',
   summary_date: null, lag_days: null, pages: null, reported: false, title: 't', ...o });
@@ -21,8 +21,8 @@ test('headerMetrics counts bills, summarized, waiting, reported, pages', () => {
   assert.equal(m.summarized, 2);
   assert.equal(m.waiting, 1);
   assert.equal(m.reported, 1);
-  assert.equal(m.pagesTotal, 12);
-  assert.equal(m.pagesCounted, 2);
+  assert.equal(m.sizeTotal, 12);
+  assert.equal(m.sizeCounted, 2);
   assert.equal(m.versions, 5);
   assert.equal(m.n, 2);
   assert.equal(m.lagMean, 20);
@@ -122,18 +122,18 @@ test('cumulativeSeries counts distinct bills with text and with a summary by dat
   assert.deepEqual(cumulativeSeries([]), []);
 });
 
-test('cumulativePages sums pages issued and pages of summarized bills by date', () => {
-  const s = cumulativePages([
+test('cumulativeSize sums pages issued and pages of summarized bills by date', () => {
+  const s = cumulativeSize([
     rec({ number: '1', text_date: '2025-01-03', summary_date: '2025-01-20', lag_days: 17, pages: 10 }),
     rec({ number: '2', text_date: '2025-01-03', pages: null }),
     rec({ number: '1', stage: null, text_date: '2025-02-01', pages: 12 }),
   ]);
   assert.deepEqual(s, [
-    { date: '2025-01-03', pagesIssued: 10, pagesSummarized: 0, versionsWithoutPages: 1 },
-    { date: '2025-01-20', pagesIssued: 10, pagesSummarized: 10, versionsWithoutPages: 1 },
-    { date: '2025-02-01', pagesIssued: 22, pagesSummarized: 10, versionsWithoutPages: 1 },
+    { date: '2025-01-03', sizeIssued: 10, sizeSummarized: 0, versionsWithoutSize: 1 },
+    { date: '2025-01-20', sizeIssued: 10, sizeSummarized: 10, versionsWithoutSize: 1 },
+    { date: '2025-02-01', sizeIssued: 22, sizeSummarized: 10, versionsWithoutSize: 1 },
   ]);
-  assert.deepEqual(cumulativePages([]), []);
+  assert.deepEqual(cumulativeSize([]), []);
 });
 
 test('headerMetrics: summarized + waiting === bills; a bill summarized at one stage is not waiting at another', () => {
@@ -150,24 +150,24 @@ test('headerMetrics: summarized + waiting === bills; a bill summarized at one st
 });
 
 
-test('cumulativePages over a stage-filtered set counts only that stage, issued and summarized', () => {
+test('cumulativeSize over a stage-filtered set counts only that stage, issued and summarized', () => {
   const rs = [
     rec({ number: '1', stage: 'introduced', text_date: '2025-01-03', summary_date: '2025-01-20', lag_days: 17, pages: 10 }),
     rec({ number: '1', stage: 'reported', text_date: '2025-02-01', summary_date: '2025-02-10', lag_days: 9, pages: 5 }),
     rec({ number: '2', stage: 'reported', text_date: '2025-02-02', pages: 7 }),
     rec({ number: '3', stage: null, text_date: '2025-02-03', pages: 100 }),
   ];
-  const last = (set) => cumulativePages(set).at(-1);
+  const last = (set) => cumulativeSize(set).at(-1);
   const all = last(rs);
-  assert.equal(all.pagesIssued, 122); // every edition, including the unmapped one
-  assert.equal(all.pagesSummarized, 15);
+  assert.equal(all.sizeIssued, 122); // every edition, including the unmapped one
+  assert.equal(all.sizeSummarized, 15);
   const rep = rs.filter((r) => r.stage === 'reported');
-  assert.equal(last(rep).pagesIssued, 12);
-  assert.equal(last(rep).pagesSummarized, 5);
-  assert.equal(headerMetrics(rep).pagesTotal, 12);
-  assert.equal(headerMetrics(rep).pagesCounted, 2);
+  assert.equal(last(rep).sizeIssued, 12);
+  assert.equal(last(rep).sizeSummarized, 5);
+  assert.equal(headerMetrics(rep).sizeTotal, 12);
+  assert.equal(headerMetrics(rep).sizeCounted, 2);
   assert.equal(headerMetrics(rep).versions, 2);
-  assert.equal(headerMetrics(rs).pagesTotal, 122);
+  assert.equal(headerMetrics(rs).sizeTotal, 122);
   assert.equal(last(rs.filter((r) => r.stage === 'passed')), undefined);
 });
 
@@ -241,6 +241,22 @@ const entry = (congress, o = {}) => {
   return { congress: String(congress), start: `${y}-01-03`, end: `${y + 2}-01-02`, ended: false, file: `${congress}/delays.js`,
     comparison: { all: { introduced_bills: 10, introduced_summarized: 4, median_lag_printed: 30, summaries_after_end: 0 } }, ...o };
 };
+
+test('size totals follow the chosen measure; a record without it counts as missing', () => {
+  const rs = [rec({ characters: 1200, sections: 3, summary_date: '2025-02-01', lag_days: 9 }), rec({ number: '2', characters: 800 }),
+    rec({ number: '3' })]; // no size fields at all (an old Congress)
+  assert.equal(headerMetrics(rs, 'characters').sizeTotal, 2000);
+  assert.equal(headerMetrics(rs, 'characters').sizeCounted, 2);
+  assert.equal(headerMetrics(rs, 'sections').sizeTotal, 3);
+  const last = cumulativeSize(rs, 'characters').at(-1);
+  assert.deepEqual([last.sizeIssued, last.sizeSummarized, last.versionsWithoutSize], [2000, 1200, 1]);
+});
+
+test('measureOptions offers the measures any document has, pages first once it exists', () => {
+  assert.deepEqual(measureOptions([['characters', 'sections'], []]), [['characters', 'Characters'], ['sections', 'Sections']]);
+  assert.deepEqual(measureOptions([['sections', 'pages']]), [['pages', 'Pages'], ['sections', 'Sections']]);
+  assert.deepEqual(measureOptions([]), []);
+});
 
 test('mergeCongresses pools documents and tags each record with its Congress', () => {
   const a = { records: [rec({ number: '1' }), rec({ number: '2' })] }, b = { records: [rec({ number: '1' })] };

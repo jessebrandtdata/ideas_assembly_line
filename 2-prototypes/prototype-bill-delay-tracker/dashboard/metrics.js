@@ -20,19 +20,19 @@
 
   /** Header-row numbers over the records in view. lag* are null when nothing is summarized.
    *  waiting = distinct bills with a staged record and no summary in the set, so summarized + waiting === bills. */
-  function headerMetrics(records) {
+  function headerMetrics(records, measure = 'pages') { // measure: the size field summed, pages / characters / sections
     const summarizedBills = new Set(records.filter((r) => r.lag_days !== null).map(billKey));
     const waitingBills = new Set(records.filter((r) => r.stage !== null && !summarizedBills.has(billKey(r))).map(billKey));
     const summarized = records.filter((r) => r.lag_days !== null);
     const lags = summarized.map((r) => r.lag_days).sort((a, b) => a - b);
-    const withPages = records.filter((r) => r.pages !== null);
+    const withSize = records.filter((r) => (r[measure] ?? null) !== null);
     return {
       bills: new Set(records.map(billKey)).size,
       summarized: summarizedBills.size,
       waiting: waitingBills.size,
       reported: new Set(records.filter((r) => r.stage === 'reported').map(billKey)).size,
-      pagesTotal: withPages.reduce((s, r) => s + r.pages, 0),
-      pagesCounted: withPages.length,
+      sizeTotal: withSize.reduce((s, r) => s + r[measure], 0),
+      sizeCounted: withSize.length,
       versions: records.length,
       n: lags.length,
       lagMean: lags.length ? lags.reduce((a, b) => a + b, 0) / lags.length : null,
@@ -47,7 +47,7 @@
   }
 
   /** Fixed-width bins of lag_days from 0 to the largest lag in view; no open-ended bin. A negative lag (a summary
-   *  dated before its text reached GovInfo; a handful exist) is left out rather than folded into the first bin. */
+   *  dated before its printed date; a handful exist) is left out rather than folded into the first bin. */
   function binLags(records, width) {
     const lags = records.filter((r) => r.lag_days !== null && r.lag_days >= 0).map((r) => r.lag_days);
     if (lags.length === 0) return [];
@@ -109,20 +109,32 @@
     return dates.map((date) => ({ date, withText: countLE(textDates, date), summarized: countLE(summaryDates, date) }));
   }
 
-  /** Running page totals over the given records (the caller scopes them to a stage, or passes every edition for 'all'): pages issued, and pages of the staged records whose summary has arrived. */
-  function cumulativePages(records) {
+  /** Running size totals over the given records, in the given measure (pages, characters or sections; the caller scopes
+   *  the records to a stage, or passes every edition for 'all'): size issued, and size of the staged records whose summary
+   *  has arrived. A record without a value for the measure counts toward versionsWithoutSize. */
+  function cumulativeSize(records, measure = 'pages') {
     const issued = [], summarized = [], missing = [];
     for (const r of records) {
-      if (r.pages === null) missing.push(r.text_date);
+      const n = r[measure] ?? null;
+      if (n === null) missing.push(r.text_date);
       else {
-        issued.push([r.text_date, r.pages]);
-        if (r.stage !== null && r.summary_date !== null) summarized.push([r.summary_date, r.pages]);
+        issued.push([r.text_date, n]);
+        if (r.stage !== null && r.summary_date !== null) summarized.push([r.summary_date, n]);
       }
     }
     const dates = [...new Set([...issued.map((p) => p[0]), ...summarized.map((p) => p[0]), ...missing])].sort();
     const running = (pairs) => { const sorted = pairs.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)); let i = 0, sum = 0; return (d) => { while (i < sorted.length && sorted[i][0] <= d) sum += sorted[i++][1]; return sum; }; };
     const pi = running(issued), ps = running(summarized), pm = running(missing.map((d) => [d, 1]));
-    return dates.map((date) => ({ date, pagesIssued: pi(date), pagesSummarized: ps(date), versionsWithoutPages: pm(date) }));
+    return dates.map((date) => ({ date, sizeIssued: pi(date), sizeSummarized: ps(date), versionsWithoutSize: pm(date) }));
+  }
+
+  // Size measures, in the order the page offers them; pages is the proposal's (IV.2) and appears once the data carries it.
+  const MEASURES = [['pages', 'Pages'], ['characters', 'Characters'], ['sections', 'Sections']];
+
+  /** Size options for documents' measure lists ([[value, label], ...] in MEASURES order): every measure any document has. */
+  function measureOptions(lists) {
+    const have = new Set(lists.flat());
+    return MEASURES.filter(([m]) => have.has(m));
   }
 
   // Every measure type the GovInfo BILLS collection lists, in the order the page offers them (congress.py's BILL_TYPES).
@@ -244,7 +256,7 @@
   }
 
   // Dual export: CommonJS for `node --test`, a window global for the page (see the header comment).
-  const api = { headerMetrics, histogramMax, binLags, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativePages, billLabel, ordinal, billUrl, longestLags, oldestWaiting, exportName, toCsv, typeOptions, congressLabel, defaultCongress, congressSeries, mergeCongresses, allCongressesLabel };
+  const api = { headerMetrics, histogramMax, binLags, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativeSize, measureOptions, billLabel, ordinal, billUrl, longestLags, oldestWaiting, exportName, toCsv, typeOptions, congressLabel, defaultCongress, congressSeries, mergeCongresses, allCongressesLabel };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else window.BillDelayMetrics = api;
 })();

@@ -41,6 +41,13 @@ figure { margin: 0 0 24px; display: flex; flex-direction: column; }
 .lists .note { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
 .caveat { background: #fff8e6; border-left: 4px solid var(--gold); padding: 10px 14px; font-size: 13px; }
 .error { color: var(--red); font-weight: 600; }
+.loading { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; margin: 0 0 12px; padding: 10px 14px;
+  background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--blue); border-radius: 6px; font-size: 14px; }
+.loading[hidden] { display: none; }
+.spinner { width: 16px; height: 16px; border: 2px solid var(--line); border-top-color: var(--blue); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; border-top-color: var(--line); background: var(--blue); } }
+body.is-loading .cards, body.is-loading figure, body.is-loading .lists, body.is-loading .presumm { opacity: .35; transition: opacity .15s; }
 .tooltip { position: absolute; pointer-events: none; background: var(--ink); color: #fff; font-size: 12px; padding: 6px 8px; border-radius: 4px; display: none; }
 </style>
 </head>
@@ -49,6 +56,7 @@ figure { margin: 0 0 24px; display: flex; flex-direction: column; }
 <h1>Bill Delay Tracker</h1>
 <p id="subtitle">Lag between a bill text version and its CRS summary on Congress.gov.</p>
 <div id="controls" class="controls"></div>
+<div id="loading" class="loading" role="status" aria-live="polite" hidden><span class="spinner" aria-hidden="true"></span><span id="loading-text">Loading…</span></div>
 <div id="cards" class="cards"></div>
 <p id="pre-text" class="presumm"></p>
 <figure id="by-congress"><div class="export-row" data-figure="by-congress" data-label="by Congress"></div><div class="chart"></div></figure>
@@ -62,12 +70,12 @@ figure { margin: 0 0 24px; display: flex; flex-direction: column; }
 </figure>
 <figure id="timeseries"><div class="export-row" data-figure="timeseries" data-label="share by month"></div><div class="chart"></div></figure>
 <figure id="cumulative"><div class="export-row" data-figure="cumulative" data-label="cumulative bills"></div><div class="chart"></div></figure>
-<figure id="cumulative-pages"><div class="export-row" data-figure="cumulative-pages" data-label="cumulative pages"></div><div class="chart"></div></figure>
+<figure id="cumulative-pages"><div class="export-row" data-figure="cumulative-pages" data-label="cumulative size"></div><div class="chart"></div></figure>
 <div class="lists">
 <section id="longest-lags"><div class="heading-row"><h2>Longest lags</h2><button type="button" data-csv="longest-lags" aria-label="Download longest lags as CSV">Download CSV</button></div><div class="table-wrap"></div></section>
 <section id="oldest-waiting"><div class="heading-row"><h2>Oldest bills still waiting</h2><button type="button" data-csv="oldest-waiting" aria-label="Download oldest waiting bills as CSV">Download CSV</button></div><div class="table-wrap"></div></section>
 </div>
-<div class="caveat">This page measures the introduced stage, the one stage every Congress has: CRS writes summaries for introduced versions only in the 119th Congress ("CRS is not writing bill summaries for subsequent versions of measures as they move through the legislative process", Congress.gov help, Bill Summaries), while earlier Congresses' summaries also cover later versions. The <span id="exceptions">–</span> later-stage summaries in view are left out here and kept in the data under their stage. The text date is the day GovInfo took the version in (the MODS record's dateIngested), not the date printed on the bill, which runs days to weeks earlier; the CSV exports carry both. <span id="printed-fallback" hidden>For <span id="printed-fallback-count">–</span> of the <span id="printed-fallback-total">–</span> text versions in the Congresses shown no ingest date was collected, and the lag starts from the printed date instead. For bills printed before GovInfo's predecessor was migrated the ingest date is the migration (a 110th Congress bill reads 2010), so old Congresses are measured from the printed date throughout.</span> The summary date is the earliest the summary record retains. Summaries first captured before the spicy-regs warehouse began keeping revisions (2026-11-06) carry only their latest revision, so a summary revised later reads slower than it was. <span id="after-end" hidden><span id="after-end-count">–</span> introduced summaries in view are dated after their Congress ended (on January 2 of the year after its second session): very late summaries, or re-publications of earlier ones.</span></div>
+<div class="caveat">This page measures the introduced stage, the one stage every Congress has: CRS writes summaries for introduced versions only in the 119th Congress ("CRS is not writing bill summaries for subsequent versions of measures as they move through the legislative process", Congress.gov help, Bill Summaries), while earlier Congresses' summaries also cover later versions. The <span id="exceptions">–</span> later-stage summaries in view are left out here and kept in the data under their stage. Every lag starts at the date printed on the bill, the one start date every Congress has; the text usually becomes readable online days to weeks later, so lags read that much longer than the wait a reader sees. Proposal IV.2 counts pages of bill text; the source data has no page count yet, so the page sizes bills in characters or sections of their parsed text instead. The summary date is the earliest the summary record retains. Summaries first captured before the spicy-regs warehouse began keeping revisions (2026-11-06) carry only their latest revision, so a summary revised later reads slower than it was. <span id="after-end" hidden><span id="after-end-count">–</span> introduced summaries in view are dated after their Congress ended (on January 2 of the year after its second session): very late summaries, or re-publications of earlier ones.</span></div>
 <div id="tooltip" class="tooltip"></div>
 <!-- Classic scripts in dependency order, not ES modules: this page opens from disk (file://), where
      Chromium blocks module scripts and fetch(). metrics.js publishes window.BillDelayMetrics,

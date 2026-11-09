@@ -1,6 +1,6 @@
 {
  "as_of": "2026-11-09",
- "computed_at": "2026-11-09T20:13:13+00:00",
+ "computed_at": "2026-11-09T20:35:37+00:00",
  "congress": "115",
  "start": "2017-01-03",
  "end": "2019-01-02",
@@ -19,16 +19,27 @@
  "text_versions": 18033,
  "versions_without_date": 477,
  "versions_dated_after_as_of": 0,
- "versions_without_ingest_date": 18033,
  "bills_summarized": 13556,
  "bills_reported_by_committee": 1593,
  "introduced_with_summary": 12854,
  "introduced_awaiting_summary": 15,
- "pages": {
-  "versions_with_count": 0,
-  "versions_total": 18033,
-  "total": 0,
-  "mean": null
+ "measures": [
+  "characters",
+  "sections"
+ ],
+ "size": {
+  "characters": {
+   "versions_with_value": 17976,
+   "versions_total": 18033,
+   "total": 225667626,
+   "mean": 12553.8
+  },
+  "sections": {
+   "versions_with_value": 17976,
+   "versions_total": 18033,
+   "total": 329180,
+   "mean": 18.3
+  }
  },
  "delay_days": {
   "n": 14645,
@@ -387,9 +398,9 @@
  },
  "summaries_collected": 16501,
  "caveats": [
-  "delay = summary date minus the day GovInfo took the text in, or minus the printed date where no ingest date was collected; the comparison block measures from the printed date throughout",
+  "delay = summary date minus the date printed on the bill, which runs days to weeks before the text is readable online",
   "the summary date is the first retained publication; summaries first captured before the warehouse kept revisions carry their latest revision, which can be a re-publication",
   "'awaiting' means no introduced-stage summary appears in the summaries collected so far",
-  "page counts come from GovInfo package summaries, one call per version, and may cover only a sample"
+  "size is sections and characters of the warehouse's parsed bill text; the warehouse publishes no page count yet"
  ]
 }

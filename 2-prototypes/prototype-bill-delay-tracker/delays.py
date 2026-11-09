@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
 """Join text versions with CRS summaries and compute summary lag per bill and stage, per Congress.
 
-Reads versions.csv, pages.csv, ingest.csv, summaries.csv from each <data-dir>/<congress>/ folder;
-writes delays.csv, awaiting.csv, stats.json, delays.json and delays.js beside them, then
+Reads versions.csv and summaries.csv (collect_warehouse.py's output) from each <data-dir>/<congress>/
+folder; writes delays.csv, awaiting.csv, stats.json, delays.json and delays.js beside them, then
 <data-dir>/congresses.json (and congresses.js), the index of every Congress folder that has a
 stats.json, which the dashboard reads first. Stdlib only.
 
 Lag definition: the summary date minus the text date, matched by stage (introduced / reported /
-passed / enrolled). The text date is date_ingested (GovInfo MODS, collected into ingest.csv), the day
-the text appeared on GovInfo; date_issued, the date printed on the bill, is kept as printed_date and
-is the fallback when no ingest date was collected (every version of an old Congress, where the
-ingest date would be a repository migration). A version with neither date is left out and counted.
-The summary date is last_summary_update_date: the first retained publication when the data came
-from the warehouse, the latest revision when it came from the Congress.gov API, so a revised summary
-can read slower than it was.
+passed / enrolled). The text date is date_issued, the date printed on the bill, the one start date
+every Congress has; it runs days to weeks before the text is readable online. A version without one,
+or with one after the as-of date, is left out and counted. The summary date is
+last_summary_update_date, the earliest revision the warehouse retains, so a summary first captured
+before the warehouse kept revisions can read slower than it was.
 
-The comparison block in stats.json measures every Congress the same way, from the printed date, so
-Congresses with and without ingest dates line up; it is what the dashboard's by-Congress chart draws.
+Size: each record carries whichever of pages, sections and characters the Congress has values for
+(versions.csv columns; pages stays empty until the warehouse publishes a page count).
 """
 import argparse
 import csv
@@ -31,6 +29,8 @@ from congress import congress_dirs, congress_end, congress_start, parse_congress
 VERSION_STAGE = {"ih": "introduced", "is": "introduced", "rh": "reported", "rs": "reported",
                  "eh": "passed", "es": "passed", "eah": "passed", "eas": "passed", "enr": "enrolled"}
 STAGE_ORDER = ["introduced", "reported", "passed", "enrolled"]
+# size measures, in the order the dashboard offers them; pages is the proposal's and comes first once it has values
+SIZE_MEASURES = ["pages", "characters", "sections"]
 
 
 def summary_stage(action_desc):
@@ -135,29 +135,30 @@ def build(data_dir, congress, as_of):
     all_versions = read_csv(data_dir / "versions.csv")
     if not all_versions:
         return None
-    pages = {r["package_id"]: int(r["pages"]) for r in read_csv(data_dir / "pages.csv") if r["pages"].isdigit()}
-    ingested = {r["package_id"]: r["date_ingested"] for r in read_csv(data_dir / "ingest.csv") if r["date_ingested"]}
     summaries = read_csv(data_dir / "summaries.csv")
+    # the size measures this Congress has any value for, in SIZE_MEASURES order
+    measures = [m for m in SIZE_MEASURES if any((v.get(m) or "").isdigit() for v in all_versions)]
+
+    def size(v):
+        """{measure: int or None} for the measures this Congress has."""
+        return {m: int(v[m]) if (v.get(m) or "").isdigit() else None for m in measures}
 
     def published(v):
-        """The day the text appeared on GovInfo (MODS dateIngested), else the printed date."""
-        return ingested.get(v["package_id"]) or v["date_issued"]
+        """The date printed on the bill, where every lag starts."""
+        return v["date_issued"]
 
     def summary_date(s):
         """last_summary_update_date, falling back to update_date for a row that lacks it."""
         return s["last_summary_update_date"] or s["update_date"]
 
-    # a version with no date of either kind cannot start a lag, and one dated after the as-of date has a date that
-    # cannot have happened yet (the warehouse has a 109th Congress bill printed "2066-06-07"); both are left out and
-    # counted, not repaired
+    # a version with no printed date cannot start a lag, and one dated after the as-of date has a date that cannot have
+    # happened yet (the warehouse has a 109th Congress bill printed "2066-06-07"); both are left out and counted, not
+    # repaired
     dated = [v for v in all_versions if published(v)]
     undated = len(all_versions) - len(dated)
     versions = [v for v in dated if published(v)[:10] <= as_of.isoformat()]
     future = len(dated) - len(versions)
-
-    def printed(v):
-        """The printed date, which orders a bill's editions; the ingest date for the few versions without one."""
-        return v["date_issued"] or published(v)
+    printed = published  # orders a bill's editions
 
     # earliest text version per (bill, stage), by printed date
     text = {}
@@ -197,27 +198,27 @@ def build(data_dir, congress, as_of):
         if not s:
             continue
         td, sd = to_date(published(v)), to_date(s["_date"])
+        csv_size = {m: ("" if n is None else n) for m, n in size(v).items()}
         delays.append({"bill_type": k[0], "number": k[1], "stage": k[2], "package_id": v["package_id"],
-                       "text_date": td.isoformat(), "printed_date": v["date_issued"], "summary_date": sd.isoformat(),
-                       "delay_days": (sd - td).days, "pages": pages.get(v["package_id"], ""),
-                       "title": v["title"]})
+                       "text_date": td.isoformat(), "summary_date": sd.isoformat(),
+                       "delay_days": (sd - td).days, **csv_size, "title": v["title"]})
     write_csv(data_dir / "delays.csv", delays,
-              ["bill_type", "number", "stage", "package_id", "text_date", "printed_date", "summary_date", "delay_days", "pages", "title"])
+              ["bill_type", "number", "stage", "package_id", "text_date", "summary_date", "delay_days", *measures, "title"])
 
     awaiting = []
     for k, v in sorted(text.items()):
         if k[2] == "introduced" and k not in summ:
             td = to_date(published(v))
+            csv_size = {m: ("" if n is None else n) for m, n in size(v).items()}
             awaiting.append({"bill_type": k[0], "number": k[1], "package_id": v["package_id"],
-                             "text_date": td.isoformat(), "printed_date": v["date_issued"], "age_days": (as_of - td).days,
-                             "pages": pages.get(v["package_id"], ""), "title": v["title"]})
+                             "text_date": td.isoformat(), "age_days": (as_of - td).days, **csv_size, "title": v["title"]})
     awaiting.sort(key=lambda r: -r["age_days"])
     write_csv(data_dir / "awaiting.csv", awaiting,
-              ["bill_type", "number", "package_id", "text_date", "printed_date", "age_days", "pages", "title"])
+              ["bill_type", "number", "package_id", "text_date", "age_days", *measures, "title"])
 
     # one record per text version for the dashboard. Only the earliest edition of a
-    # (bill, stage) carries the stage and its lag; every other edition keeps its pages
-    # under stage null so "pages processed" counts the whole Congress.
+    # (bill, stage) carries the stage and its lag; every other edition keeps its size
+    # under stage null so the size totals count the whole Congress.
     earliest = {v["package_id"]: k for k, v in text.items()}
     records = []
     for v in sorted(versions, key=lambda v: (v["bill_type"], int(v["number"]), printed(v))):
@@ -226,21 +227,17 @@ def build(data_dir, congress, as_of):
         td = to_date(published(v))
         sd = to_date(s["_date"]) if s else None
         records.append({"type": v["bill_type"], "number": v["number"], "stage": k[2] if k else None,
-                        "text_date": td.isoformat(), "printed_date": v["date_issued"],
+                        "text_date": td.isoformat(),
                         "summary_date": sd.isoformat() if sd else None,
                         "lag_days": (sd - td).days if sd else None,
-                        "pages": pages.get(v["package_id"]),
+                        **size(v),
                         "reported": (v["bill_type"], v["number"]) in reported,
                         "title": v["title"]})
     before_text = Counter(k[2] for k in summ if k not in text)
-    without_ingest = sum(1 for v in versions if v["package_id"] not in ingested)
-    intro_versions = [v for k, v in text.items() if k[2] == "introduced"]
     envelope = {"as_of": as_of.isoformat(), "congress": str(congress),
                 "summary_before_text": dict(sorted(before_text.items())),
-                # how many text versions fell back to the printed date for want of an ingest date
-                "versions_without_ingest_date": without_ingest,
-                "introduced_versions": len(intro_versions),
-                "introduced_without_ingest_date": sum(1 for v in intro_versions if v["package_id"] not in ingested),
+                # the size measures records carry (pages, sections, characters), those this Congress has any value for
+                "measures": measures,
                 "versions_without_date": undated,
                 "versions_dated_after_as_of": future,
                 "records": records}
@@ -284,7 +281,11 @@ def build(data_dir, congress, as_of):
                         "p90_lag": xs[min(len(xs) - 1, int(len(xs) * 0.9))] if xs else None})
     all_delays = [d["delay_days"] for d in delays]
     intro = by_stage.get("introduced", [])
-    known_pages = [pages[v["package_id"]] for v in versions if v["package_id"] in pages]
+    sizes = {}
+    for m in measures:
+        known = [size(v)[m] for v in versions if size(v)[m] is not None]
+        sizes[m] = {"versions_with_value": len(known), "versions_total": len(versions), "total": sum(known),
+                    "mean": round(statistics.mean(known), 1) if known else None}
     end = congress_end(congress)
     stats = {
         "as_of": as_of.isoformat(),
@@ -298,13 +299,12 @@ def build(data_dir, congress, as_of):
         "text_versions": len(versions),
         "versions_without_date": undated,
         "versions_dated_after_as_of": future,
-        "versions_without_ingest_date": without_ingest,
         "bills_summarized": len(bills_summarized),
         "bills_reported_by_committee": len(reported),
         "introduced_with_summary": len(intro),
         "introduced_awaiting_summary": len(awaiting),
-        "pages": {"versions_with_count": len(known_pages), "versions_total": len(versions),
-                  "total": sum(known_pages), "mean": round(statistics.mean(known_pages), 1) if known_pages else None},
+        "measures": measures,
+        "size": sizes,
         "delay_days": {"n": len(all_delays), "mean": round(statistics.mean(all_delays), 1) if all_delays else None,
                        "median": statistics.median(all_delays) if all_delays else None,
                        "max": max(all_delays) if all_delays else None},
@@ -315,10 +315,10 @@ def build(data_dir, congress, as_of):
         "comparison": comparison(text, summ, congress, lambda k: k[0]),
         "summaries_collected": len(summaries),
         "caveats": [
-            "delay = summary date minus the day GovInfo took the text in, or minus the printed date where no ingest date was collected; the comparison block measures from the printed date throughout",
+            "delay = summary date minus the date printed on the bill, which runs days to weeks before the text is readable online",
             "the summary date is the first retained publication; summaries first captured before the warehouse kept revisions carry their latest revision, which can be a re-publication",
             "'awaiting' means no introduced-stage summary appears in the summaries collected so far",
-            "page counts come from GovInfo package summaries, one call per version, and may cover only a sample",
+            "size is sections and characters of the warehouse's parsed bill text; the warehouse publishes no page count yet",
         ],
     }
     (data_dir / "stats.json").write_text(json.dumps(stats, indent=1) + "\n")
@@ -338,7 +338,7 @@ def write_index(root):
         entries.append({"congress": s["congress"], "start": s["start"], "end": s["end"], "ended": s["ended"],
                         "as_of": s["as_of"], "file": f"{n}/delays.js", "bill_types": s["bill_types"],
                         "text_versions": s["text_versions"],
-                        "versions_without_ingest_date": s["versions_without_ingest_date"],
+                        "measures": s.get("measures", []), "size": s.get("size", {}),
                         "comparison": s["comparison"]})
     doc = {"congresses": entries}
     text = json.dumps(doc, separators=(",", ":"))

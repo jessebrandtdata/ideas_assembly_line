@@ -16,16 +16,22 @@ PROTO = HERE.parent
 PREFIX = "generations/bill-family/testdigest"
 
 VERSIONS = [
-    # bill_id, version_code, package_id, version_date
-    ("119-hr-1", "reported-in-house", "BILLS-119hr1rh", "2025-05-20T04:00:00Z"),
-    ("119-hr-1", "engrossed-in-house", "BILLS-119hr1eh", "2025-05-22T04:00:00Z"),
-    ("119-hr-1", "eas2", "BILLS-119hr1eas2", "2025-07-01T04:00:00Z"),
-    ("119-hr-1", "public-law", None, ""),  # listed, not a printing: no package id
-    ("119-hr-10779", "introduced-in-house", "BILLS-119hr10779ih", "2026-10-09T04:00:00Z"),
-    ("119-hres-5", "introduced-in-house", "BILLS-119hres5ih", "2025-01-03T05:00:00Z"),  # a simple resolution
-    ("118-hr-1", "introduced-in-house", "BILLS-118hr1ih", "2023-01-09T05:00:00Z"),  # another Congress
-    ("118-s-7", "introduced-in-senate", "BILLS-118s7is", ""),  # a printing with no date
+    # bill_id, version_code, printing_id, package_id, version_date
+    ("119-hr-1", "reported-in-house", "p:1rh", "BILLS-119hr1rh", "2025-05-20T04:00:00Z"),
+    ("119-hr-1", "engrossed-in-house", "p:1eh", "BILLS-119hr1eh", "2025-05-22T04:00:00Z"),
+    ("119-hr-1", "eas2", "p:1eas2", "BILLS-119hr1eas2", "2025-07-01T04:00:00Z"),
+    ("119-hr-1", "public-law", "p:law", None, ""),  # listed, not a printing: no package id
+    ("119-hr-10779", "introduced-in-house", "p:10779", "BILLS-119hr10779ih", "2026-10-09T04:00:00Z"),
+    ("119-hres-5", "introduced-in-house", "p:hres5", "BILLS-119hres5ih", "2025-01-03T05:00:00Z"),  # a simple resolution
+    ("118-hr-1", "introduced-in-house", "p:118hr1", "BILLS-118hr1ih", "2023-01-09T05:00:00Z"),  # another Congress
+    ("118-s-7", "introduced-in-senate", "p:118s7", "BILLS-118s7is", ""),  # a printing with no date
 ]
+SECTIONS = {
+    # partition -> rows of (bill_id, printing_id, body_chars): parsed bill text, one row per section
+    "119": [("119-hr-1", "p:1rh", 1000), ("119-hr-1", "p:1rh", 500), ("119-hr-1", "p:1eh", 700),
+            ("119-hr-10779", "p:10779", 120)],
+    "118": [("118-hr-1", "p:118hr1", 300)],
+}
 BILLS = [
     ("119-hr-1", "One Big Beautiful Bill Act"),
     ("119-hr-10779", "A post office naming"),
@@ -61,15 +67,24 @@ class CollectWarehouse(unittest.TestCase):
         gen = cls.source / PREFIX
         gen.mkdir(parents=True)
         con = duckdb.connect()
-        write_parquet(con, gen / "bill_versions.parquet", ["bill_id", "version_code", "package_id", "version_date"], VERSIONS)
+        write_parquet(con, gen / "bill_versions.parquet",
+                      ["bill_id", "version_code", "printing_id", "package_id", "version_date"], VERSIONS)
         write_parquet(con, gen / "congress_bills.parquet", ["bill_id", "title"], BILLS)
         write_parquet(con, gen / "bill_publisher_summaries.parquet",
                       ["bill_id", "summary_version_code", "action_date", "action_desc", "update_date"], SUMMARIES)
+        members = []  # bill_sections is partitioned by Congress, one member file each, as the real pointer lists it
+        for congress, rows in SECTIONS.items():
+            key = f"bill_sections/congress={congress}/part-000000.parquet"
+            (gen / key).parent.mkdir(parents=True)
+            write_parquet(con, gen / key, ["bill_id", "printing_id", "body_chars"], rows)
+            members.append({"key": key, "partition": {"congress": congress}, "rows": len(rows)})
         con.close()
         (cls.source / "publication.v2.json").write_text(json.dumps({
             "format": "spicy-regs-publication", "version": 2,
             "families": {"bill-family": {"prefix": PREFIX, "publishedAt": "2026-11-06T04:26:02Z",
-                                         "artifactDigest": "sha256:test"}}}))
+                                         "artifactDigest": "sha256:test",
+                                         "tables": {"bill_sections.parquet": {"partitionColumns": ["congress"],
+                                                                               "members": members}}}}}))
         cls.data = cls.tmp / "data"
         cls.collect(cls.data, "--congress", "118,119")
         cls.versions = read(cls.data / "119" / "versions.csv")
@@ -90,9 +105,19 @@ class CollectWarehouse(unittest.TestCase):
                          ["BILLS-118hr1ih", "BILLS-118s7is"])
         self.assertEqual([r["number"] for r in read(self.data / "118" / "summaries.csv")], ["1"])
 
-    def test_versions_shape_matches_collect_py(self):
+    def test_versions_shape(self):
         self.assertEqual(list(self.versions[0].keys()),
-                         ["package_id", "congress", "bill_type", "number", "version", "date_issued", "last_modified", "title"])
+                         ["package_id", "congress", "bill_type", "number", "version", "date_issued", "title",
+                          "pages", "sections", "characters"])
+
+    def test_size_from_parsed_sections(self):
+        by_id = {r["package_id"]: r for r in self.versions}
+        self.assertEqual((by_id["BILLS-119hr1rh"]["sections"], by_id["BILLS-119hr1rh"]["characters"]), ("2", "1500"))
+        self.assertEqual((by_id["BILLS-119hr1eh"]["sections"], by_id["BILLS-119hr1eh"]["characters"]), ("1", "700"))
+        self.assertEqual(by_id["BILLS-119hr1eas2"]["characters"], "")  # not parsed: empty, not zero
+        self.assertEqual(by_id["BILLS-119hr1rh"]["pages"], "")  # the warehouse publishes no page count
+        r118 = next(r for r in read(self.data / "118" / "versions.csv") if r["package_id"] == "BILLS-118hr1ih")
+        self.assertEqual(r118["characters"], "300")  # read from the 118th's own partition
 
     def test_one_row_per_text_package_in_scope(self):
         ids = sorted(r["package_id"] for r in self.versions)
@@ -111,7 +136,6 @@ class CollectWarehouse(unittest.TestCase):
         r = next(r for r in self.versions if r["package_id"] == "BILLS-119hr1rh")
         self.assertEqual((r["congress"], r["bill_type"], r["number"]), ("119", "hr", "1"))
         self.assertEqual(r["date_issued"], "2025-05-20")  # the publisher's date, printed on the bill
-        self.assertEqual(r["last_modified"], "")
         self.assertEqual(r["title"], "One Big Beautiful Bill Act")
 
     def test_undated_printing_is_kept_with_an_empty_date(self):
@@ -171,17 +195,18 @@ class CollectWarehouse(unittest.TestCase):
         self.assertTrue((data / "118" / "warehouse.json").exists())
 
     def test_delays_py_runs_on_the_output(self):
-        # the join downstream is unchanged: it measures to last_summary_update_date
-        (self.data / "119" / "pages.csv").write_text("package_id,pages\n")
-        (self.data / "119" / "ingest.csv").write_text("package_id,date_ingested\nBILLS-119hr1rh,2025-05-21\n")
+        # delays.py reads this output alone: lags from the printed date to last_summary_update_date, sizes from versions.csv
         subprocess.run([sys.executable, str(PROTO / "delays.py"), "--data-dir", str(self.data), "--as-of", "2026-11-06"],
                        check=True, capture_output=True)
-        records = json.loads((self.data / "119" / "delays.json").read_text())["records"]
+        doc = json.loads((self.data / "119" / "delays.json").read_text())
+        records = doc["records"]
+        self.assertEqual(doc["measures"], ["characters", "sections"])  # no page count, so no pages measure
         reported = next(r for r in records if r["number"] == "1" and r["stage"] == "reported")
-        self.assertEqual(reported["text_date"], "2025-05-21")  # ingest.csv still wins when present
+        self.assertEqual(reported["text_date"], "2025-05-20")  # the printed date
+        self.assertEqual(reported["characters"], 1500)
         self.assertIsNone(reported["summary_date"])  # the fixture has no reported-stage summary
         passed = next(r for r in records if r["number"] == "1" and r["stage"] == "passed")
-        self.assertEqual(passed["text_date"], "2025-05-22")  # no ingest row: the printed date
+        self.assertEqual(passed["text_date"], "2025-05-22")
         self.assertEqual(passed["summary_date"], "2025-06-10")
         self.assertEqual(passed["lag_days"], 19)
         index = json.loads((self.data / "congresses.json").read_text())["congresses"]

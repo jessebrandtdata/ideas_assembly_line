@@ -17,8 +17,25 @@
     "hconres",
     "sconres"
    ],
-   "text_versions": 23215,
-   "versions_without_ingest_date": 0,
+   "text_versions": 23040,
+   "measures": [
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "characters": {
+     "versions_with_value": 23016,
+     "versions_total": 23040,
+     "total": 236839043,
+     "mean": 10290.2
+    },
+    "sections": {
+     "versions_with_value": 23016,
+     "versions_total": 23040,
+     "total": 338161,
+     "mean": 14.7
+    }
+   },
    "comparison": {
     "all": {
      "introduced_bills": 19162,
@@ -103,7 +120,24 @@
     "sconres"
    ],
    "text_versions": 22627,
-   "versions_without_ingest_date": 22627,
+   "measures": [
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "characters": {
+     "versions_with_value": 22600,
+     "versions_total": 22627,
+     "total": 255139085,
+     "mean": 11289.3
+    },
+    "sections": {
+     "versions_with_value": 22600,
+     "versions_total": 22627,
+     "total": 359861,
+     "mean": 15.9
+    }
+   },
    "comparison": {
     "all": {
      "introduced_bills": 18593,
@@ -188,7 +222,24 @@
     "sconres"
    ],
    "text_versions": 21031,
-   "versions_without_ingest_date": 21031,
+   "measures": [
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "characters": {
+     "versions_with_value": 20980,
+     "versions_total": 21031,
+     "total": 307127125,
+     "mean": 14639.0
+    },
+    "sections": {
+     "versions_with_value": 20980,
+     "versions_total": 21031,
+     "total": 399482,
+     "mean": 19.0
+    }
+   },
    "comparison": {
     "all": {
      "introduced_bills": 17090,
@@ -273,7 +324,24 @@
     "sconres"
    ],
    "text_versions": 20077,
-   "versions_without_ingest_date": 20077,
+   "measures": [
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "characters": {
+     "versions_with_value": 20049,
+     "versions_total": 20077,
+     "total": 294211510,
+     "mean": 14674.6
+    },
+    "sections": {
+     "versions_with_value": 20049,
+     "versions_total": 20077,
+     "total": 394890,
+     "mean": 19.7
+    }
+   },
    "comparison": {
     "all": {
      "introduced_bills": 15960,
@@ -358,7 +426,24 @@
     "sconres"
    ],
    "text_versions": 18033,
-   "versions_without_ingest_date": 18033,
+   "measures": [
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "characters": {
+     "versions_with_value": 17976,
+     "versions_total": 18033,
+     "total": 225667626,
+     "mean": 12553.8
+    },
+    "sections": {
+     "versions_with_value": 17976,
+     "versions_total": 18033,
+     "total": 329180,
+     "mean": 18.3
+    }
+   },
    "comparison": {
     "all": {
      "introduced_bills": 12869,
@@ -443,7 +528,24 @@
     "sjres"
    ],
    "text_versions": 15727,
-   "versions_without_ingest_date": 15727,
+   "measures": [
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "characters": {
+     "versions_with_value": 15698,
+     "versions_total": 15727,
+     "total": 209895265,
+     "mean": 13370.8
+    },
+    "sections": {
+     "versions_with_value": 15698,
+     "versions_total": 15727,
+     "total": 299361,
+     "mean": 19.1
+    }
+   },
    "comparison": {
     "all": {
      "introduced_bills": 11350,
@@ -528,7 +630,24 @@
     "sconres"
    ],
    "text_versions": 13421,
-   "versions_without_ingest_date": 13421,
+   "measures": [
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "characters": {
+     "versions_with_value": 13379,
+     "versions_total": 13421,
+     "total": 189498319,
+     "mean": 14163.9
+    },
+    "sections": {
+     "versions_with_value": 13379,
+     "versions_total": 13421,
+     "total": 261628,
+     "mean": 19.6
+    }
+   },
    "comparison": {
     "all": {
      "introduced_bills": 9942,
@@ -613,7 +732,24 @@
     "sjres"
    ],
    "text_versions": 14828,
-   "versions_without_ingest_date": 14828,
+   "measures": [
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "characters": {
+     "versions_with_value": 14753,
+     "versions_total": 14828,
+     "total": 182866880,
+     "mean": 12395.2
+    },
+    "sections": {
+     "versions_with_value": 14753,
+     "versions_total": 14828,
+     "total": 269752,
+     "mean": 18.3
+    }
+   },
    "comparison": {
     "all": {
      "introduced_bills": 11493,
@@ -698,7 +834,24 @@
     "sjres"
    ],
    "text_versions": 17782,
-   "versions_without_ingest_date": 17782,
+   "measures": [
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "characters": {
+     "versions_with_value": 17437,
+     "versions_total": 17782,
+     "total": 239054189,
+     "mean": 13709.6
+    },
+    "sections": {
+     "versions_with_value": 17437,
+     "versions_total": 17782,
+     "total": 321419,
+     "mean": 18.4
+    }
+   },
    "comparison": {
     "all": {
      "introduced_bills": 12780,
@@ -783,7 +936,24 @@
     "sjres"
    ],
    "text_versions": 19545,
-   "versions_without_ingest_date": 19545,
+   "measures": [
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "characters": {
+     "versions_with_value": 18134,
+     "versions_total": 19545,
+     "total": 231983333,
+     "mean": 12792.7
+    },
+    "sections": {
+     "versions_with_value": 18134,
+     "versions_total": 19545,
+     "total": 324001,
+     "mean": 17.9
+    }
+   },
    "comparison": {
     "all": {
      "introduced_bills": 13006,
@@ -868,7 +1038,24 @@
     "sjres"
    ],
    "text_versions": 16930,
-   "versions_without_ingest_date": 16930,
+   "measures": [
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "characters": {
+     "versions_with_value": 11951,
+     "versions_total": 16930,
+     "total": 112788877,
+     "mean": 9437.6
+    },
+    "sections": {
+     "versions_with_value": 11951,
+     "versions_total": 16930,
+     "total": 170326,
+     "mean": 14.3
+    }
+   },
    "comparison": {
     "all": {
      "introduced_bills": 12140,
@@ -953,7 +1140,24 @@
     "sjres"
    ],
    "text_versions": 14778,
-   "versions_without_ingest_date": 14778,
+   "measures": [
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "characters": {
+     "versions_with_value": 1619,
+     "versions_total": 14778,
+     "total": 10770729,
+     "mean": 6652.7
+    },
+    "sections": {
+     "versions_with_value": 1619,
+     "versions_total": 14778,
+     "total": 19303,
+     "mean": 11.9
+    }
+   },
    "comparison": {
     "all": {
      "introduced_bills": 9909,
