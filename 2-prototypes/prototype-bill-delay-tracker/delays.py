@@ -98,13 +98,14 @@ INDEX_JS_HEADER = """\
 """
 
 
-def comparison(text, summ, congress, by_type_of):
+def comparison(text, summ, first_any, congress, by_type_of):
     """Introduced-stage numbers measured from the printed date, overall and per bill type: how many
-    bills have introduced text, how many have an introduced summary, the median lag, and how many of
-    those summaries are dated after the Congress ended (a re-publication, or a very late summary)."""
+    bills have introduced text, how many have an introduced summary, how many have a summary only at a
+    later stage (summarized, with no introduced lag), the median lag, and how many introduced summaries
+    are dated after the Congress ended (a re-publication, or a very late summary)."""
     end = congress_end(congress)
-    groups = defaultdict(lambda: {"introduced_bills": 0, "introduced_summarized": 0, "lags": [],
-                                  "summaries_after_end": 0})
+    groups = defaultdict(lambda: {"introduced_bills": 0, "introduced_summarized": 0, "summarized_other_stage": 0,
+                                  "lags": [], "summaries_after_end": 0})
     for k, v in text.items():
         if k[2] != "introduced":
             continue
@@ -112,6 +113,9 @@ def comparison(text, summ, congress, by_type_of):
             groups[g]["introduced_bills"] += 1
         s = summ.get(k)
         if not s:
+            if k[:2] in first_any:
+                for g in ("all", by_type_of(k)):
+                    groups[g]["summarized_other_stage"] += 1
             continue
         sd = to_date(s["_date"])
         for g in ("all", by_type_of(k)):
@@ -192,6 +196,16 @@ def build(data_dir, congress, as_of):
         if k not in summ or summary_date(s) < summ[k]["_date"]:
             summ[k] = {**s, "_date": summary_date(s)}
 
+    # earliest summary of each bill at any stage, including stages the table above does not map. A bill CRS summarized
+    # only later (S. 1869 of the 115th has a single summary, at Public Law) is summarized, not waiting; it just has no
+    # introduced-stage lag to measure.
+    first_any = {}
+    for s in summaries:
+        d = summary_date(s)
+        bill = (s["bill_type"], s["number"])
+        if d and (bill not in first_any or d < first_any[bill]):
+            first_any[bill] = d
+
     delays = []
     for k, v in sorted(text.items()):
         s = summ.get(k)
@@ -207,7 +221,7 @@ def build(data_dir, congress, as_of):
 
     awaiting = []
     for k, v in sorted(text.items()):
-        if k[2] == "introduced" and k not in summ:
+        if k[2] == "introduced" and k not in summ and k[:2] not in first_any:
             td = to_date(published(v))
             csv_size = {m: ("" if n is None else n) for m, n in size(v).items()}
             awaiting.append({"bill_type": k[0], "number": k[1], "package_id": v["package_id"],
@@ -226,10 +240,14 @@ def build(data_dir, congress, as_of):
         s = summ.get(k) if k else None
         td = to_date(published(v))
         sd = to_date(s["_date"]) if s else None
+        # a staged record with no summary of its own stage, for a bill summarized at another stage: the bill is not
+        # waiting, and the date of its first summary says since when (the key is left out otherwise, to keep files small)
+        other = first_any.get(k[:2]) if k and not s else None
         records.append({"type": v["bill_type"], "number": v["number"], "stage": k[2] if k else None,
                         "text_date": td.isoformat(),
                         "summary_date": sd.isoformat() if sd else None,
                         "lag_days": (sd - td).days if sd else None,
+                        **({"other_summary_date": other[:10]} if other else {}),
                         **size(v),
                         "reported": (v["bill_type"], v["number"]) in reported,
                         "title": v["title"]})
@@ -299,7 +317,7 @@ def build(data_dir, congress, as_of):
         "text_versions": len(versions),
         "versions_without_date": undated,
         "versions_dated_after_as_of": future,
-        "bills_summarized": len(bills_summarized),
+        "bills_summarized": len(first_any),  # any stage, the same test that keeps a bill out of "awaiting"
         "bills_reported_by_committee": len(reported),
         "introduced_with_summary": len(intro),
         "introduced_awaiting_summary": len(awaiting),
@@ -312,12 +330,12 @@ def build(data_dir, congress, as_of):
         "introduced_histogram": histogram(intro, [0, 7, 14, 30, 60, 90, 180, 365]),
         "awaiting_histogram": histogram([r["age_days"] for r in awaiting], [0, 7, 14, 30, 60, 90, 180, 365]),
         "monthly_introduced": monthly,
-        "comparison": comparison(text, summ, congress, lambda k: k[0]),
+        "comparison": comparison(text, summ, first_any, congress, lambda k: k[0]),
         "summaries_collected": len(summaries),
         "caveats": [
             "delay = summary date minus the date printed on the bill, which runs days to weeks before the text is readable online",
             "the summary date is the first retained publication; summaries first captured before the warehouse kept revisions carry their latest revision, which can be a re-publication",
-            "'awaiting' means no introduced-stage summary appears in the summaries collected so far",
+            "'awaiting' means a bill with introduced text and no CRS summary at any stage in the summaries collected so far; a bill summarized only at a later stage is summarized, with no introduced lag",
             "size is sections and characters of the warehouse's parsed bill text; the warehouse publishes no page count yet",
         ],
     }

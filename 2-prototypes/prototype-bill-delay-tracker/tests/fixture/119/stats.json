@@ -1,6 +1,6 @@
 {
  "as_of": "2026-10-14",
- "computed_at": "2026-11-09T20:35:28+00:00",
+ "computed_at": "2026-11-09T20:51:38+00:00",
  "congress": "119",
  "start": "2025-01-03",
  "end": "2027-01-02",
@@ -167,6 +167,7 @@
   "all": {
    "introduced_bills": 2,
    "introduced_summarized": 1,
+   "summarized_other_stage": 0,
    "summaries_after_end": 0,
    "median_lag_printed": 4,
    "p90_lag_printed": 4
@@ -174,6 +175,7 @@
   "hr": {
    "introduced_bills": 2,
    "introduced_summarized": 1,
+   "summarized_other_stage": 0,
    "summaries_after_end": 0,
    "median_lag_printed": 4,
    "p90_lag_printed": 4
@@ -183,7 +185,7 @@
  "caveats": [
   "delay = summary date minus the date printed on the bill, which runs days to weeks before the text is readable online",
   "the summary date is the first retained publication; summaries first captured before the warehouse kept revisions carry their latest revision, which can be a re-publication",
-  "'awaiting' means no introduced-stage summary appears in the summaries collected so far",
+  "'awaiting' means a bill with introduced text and no CRS summary at any stage in the summaries collected so far; a bill summarized only at a later stage is summarized, with no introduced lag",
   "size is sections and characters of the warehouse's parsed bill text; the warehouse publishes no page count yet"
  ]
 }

@@ -283,6 +283,25 @@ test('binLags handles every Congress pooled (300,000 lags) without overflowing t
   assert.equal(bins.reduce((s, b) => s + b.count, 0), 300000);
 });
 
+test('a bill summarized only at a later stage is summarized, not waiting, and has no lag (S. 1869 of the 115th)', () => {
+  // introduced text, no introduced summary; CRS's only summary is the Public Law one
+  const s1869 = rec({ type: 's', number: '1869', text_date: '2017-09-27', other_summary_date: '2019-08-29' });
+  const waiting = rec({ number: '2', text_date: '2017-10-01' });
+  const m = headerMetrics([s1869, waiting]);
+  assert.deepEqual([m.bills, m.summarized, m.waiting, m.n], [2, 1, 1, 0]);
+  assert.deepEqual(oldestWaiting([s1869, waiting], '2026-11-09').map((r) => r.number), ['2']);
+  assert.deepEqual(monthlySeries([s1869]), [{ month: '2017-09', summarized: 1, waiting: 0 }]);
+  assert.equal(cumulativeSeries([s1869]).at(-1).summarized, 1);
+  assert.deepEqual(longestLags([s1869]), []); // nothing to measure
+});
+
+test('congressSeries counts later-stage-only summaries as summarized', () => {
+  const e = entry(115, { comparison: { all: { introduced_bills: 100, introduced_summarized: 85, summarized_other_stage: 15,
+    median_lag_printed: 132, summaries_after_end: 0 } } });
+  const [p] = congressSeries([e, entry(116)]);
+  assert.deepEqual([p.waiting, p.share, p.otherStage], [0, 1, 15]);
+});
+
 test('congressesIn lists the Congresses the records come from, oldest first', () => {
   const pooled = mergeCongresses([['119', { records: [rec(), rec({ number: '2' })] }], ['9', { records: [rec()] }],
     ['110', { records: [rec()] }]]);
@@ -316,7 +335,7 @@ test('congressSeries runs oldest first, follows the type, drops Congresses with 
   const b = entry(119, { comparison: { all: { introduced_bills: 8, introduced_summarized: 2, median_lag_printed: null, summaries_after_end: 0 } } });
   const all = congressSeries([b, a]);
   assert.deepEqual(all.map((s) => s.congress), ['118', '119']);
-  assert.deepEqual(all[0], { congress: '118', ended: true, bills: 10, summarized: 10, waiting: 0, share: 1, median: 40, afterEnd: 2 });
+  assert.deepEqual(all[0], { congress: '118', ended: true, bills: 10, summarized: 10, otherStage: 0, waiting: 0, share: 1, median: 40, afterEnd: 2 });
   assert.equal(all[1].waiting, 6);
   assert.equal(all[1].share, 0.25);
   assert.equal(all[1].median, null);

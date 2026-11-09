@@ -1,6 +1,6 @@
 {
  "as_of": "2026-11-09",
- "computed_at": "2026-11-09T20:35:35+00:00",
+ "computed_at": "2026-11-09T20:51:45+00:00",
  "congress": "116",
  "start": "2019-01-03",
  "end": "2021-01-02",
@@ -335,6 +335,7 @@
   "all": {
    "introduced_bills": 15960,
    "introduced_summarized": 15960,
+   "summarized_other_stage": 0,
    "summaries_after_end": 3728,
    "median_lag_printed": 172.0,
    "p90_lag_printed": 533
@@ -342,6 +343,7 @@
   "sjres": {
    "introduced_bills": 75,
    "introduced_summarized": 75,
+   "summarized_other_stage": 0,
    "summaries_after_end": 6,
    "median_lag_printed": 19,
    "p90_lag_printed": 358
@@ -349,6 +351,7 @@
   "hr": {
    "introduced_bills": 9030,
    "introduced_summarized": 9030,
+   "summarized_other_stage": 0,
    "summaries_after_end": 2177,
    "median_lag_printed": 182.0,
    "p90_lag_printed": 540
@@ -356,6 +359,7 @@
   "hres": {
    "introduced_bills": 1124,
    "introduced_summarized": 1124,
+   "summarized_other_stage": 0,
    "summaries_after_end": 115,
    "median_lag_printed": 83.5,
    "p90_lag_printed": 370
@@ -363,6 +367,7 @@
   "s": {
    "introduced_bills": 4994,
    "introduced_summarized": 4994,
+   "summarized_other_stage": 0,
    "summaries_after_end": 1352,
    "median_lag_printed": 202.0,
    "p90_lag_printed": 574
@@ -370,6 +375,7 @@
   "hjres": {
    "introduced_bills": 106,
    "introduced_summarized": 106,
+   "summarized_other_stage": 0,
    "summaries_after_end": 10,
    "median_lag_printed": 17.0,
    "p90_lag_printed": 238
@@ -377,6 +383,7 @@
   "sres": {
    "introduced_bills": 480,
    "introduced_summarized": 480,
+   "summarized_other_stage": 0,
    "summaries_after_end": 55,
    "median_lag_printed": 84.0,
    "p90_lag_printed": 363
@@ -384,6 +391,7 @@
   "hconres": {
    "introduced_bills": 113,
    "introduced_summarized": 113,
+   "summarized_other_stage": 0,
    "summaries_after_end": 10,
    "median_lag_printed": 61,
    "p90_lag_printed": 342
@@ -391,6 +399,7 @@
   "sconres": {
    "introduced_bills": 38,
    "introduced_summarized": 38,
+   "summarized_other_stage": 0,
    "summaries_after_end": 3,
    "median_lag_printed": 66.0,
    "p90_lag_printed": 354
@@ -400,7 +409,7 @@
  "caveats": [
   "delay = summary date minus the date printed on the bill, which runs days to weeks before the text is readable online",
   "the summary date is the first retained publication; summaries first captured before the warehouse kept revisions carry their latest revision, which can be a re-publication",
-  "'awaiting' means no introduced-stage summary appears in the summaries collected so far",
+  "'awaiting' means a bill with introduced text and no CRS summary at any stage in the summaries collected so far; a bill summarized only at a later stage is summarized, with no introduced lag",
   "size is sections and characters of the warehouse's parsed bill text; the warehouse publishes no page count yet"
  ]
 }

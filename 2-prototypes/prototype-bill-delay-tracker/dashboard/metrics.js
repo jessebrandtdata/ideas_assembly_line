@@ -12,6 +12,13 @@
   // congress once the page has tagged them with the Congress they were loaded for; untagged records share one Congress.
   const billKey = (r) => `${r.congress ?? ''}-${r.type}${r.number}`;
 
+  // A record's bill has a CRS summary: one for its own stage (lag_days is set), or only at another stage
+  // (other_summary_date, from delays.py; S. 1869 of the 115th was summarized once, at Public Law). Either way the bill is
+  // not waiting; only an own-stage summary has a lag to measure.
+  const isSummarized = (r) => r.lag_days != null || r.other_summary_date != null;
+  /** The date the record's bill first had a summary: its own stage's, else the earliest at another stage; null if none. */
+  const firstSummaryDate = (r) => r.summary_date ?? r.other_summary_date ?? null;
+
   function median(sorted) {
     const n = sorted.length;
     if (n === 0) return null;
@@ -21,7 +28,7 @@
   /** Header-row numbers over the records in view. lag* are null when nothing is summarized.
    *  waiting = distinct bills with a staged record and no summary in the set, so summarized + waiting === bills. */
   function headerMetrics(records, measure = 'pages') { // measure: the size field summed, pages / characters / sections
-    const summarizedBills = new Set(records.filter((r) => r.lag_days !== null).map(billKey));
+    const summarizedBills = new Set(records.filter(isSummarized).map(billKey));
     const waitingBills = new Set(records.filter((r) => r.stage !== null && !summarizedBills.has(billKey(r))).map(billKey));
     const summarized = records.filter((r) => r.lag_days !== null);
     const lags = summarized.map((r) => r.lag_days).sort((a, b) => a - b);
@@ -89,7 +96,7 @@
       const month = r.text_date.slice(0, 7);
       if (!byMonth.has(month)) byMonth.set(month, { summarized: 0, waiting: 0 });
       const m = byMonth.get(month);
-      if (r.lag_days === null) m.waiting += 1; else m.summarized += 1;
+      if (isSummarized(r)) m.summarized += 1; else m.waiting += 1;
     }
     return [...byMonth.keys()].sort().map((month) => ({ month, ...byMonth.get(month) }));
   }
@@ -101,7 +108,8 @@
       if (r.stage === null) continue;
       const k = billKey(r);
       if (!firstText.has(k) || r.text_date < firstText.get(k)) firstText.set(k, r.text_date);
-      if (r.summary_date !== null && (!firstSummary.has(k) || r.summary_date < firstSummary.get(k))) firstSummary.set(k, r.summary_date);
+      const sd = firstSummaryDate(r);
+      if (sd !== null && (!firstSummary.has(k) || sd < firstSummary.get(k))) firstSummary.set(k, sd);
     }
     const dates = [...new Set([...firstText.values(), ...firstSummary.values()])].sort();
     const textDates = [...firstText.values()].sort(), summaryDates = [...firstSummary.values()].sort();
@@ -119,7 +127,7 @@
       if (n === null) missing.push(r.text_date);
       else {
         issued.push([r.text_date, n]);
-        if (r.stage !== null && r.summary_date !== null) summarized.push([r.summary_date, n]);
+        if (r.stage !== null && firstSummaryDate(r) !== null) summarized.push([firstSummaryDate(r), n]);
       }
     }
     const dates = [...new Set([...issued.map((p) => p[0]), ...summarized.map((p) => p[0]), ...missing])].sort();
@@ -176,7 +184,9 @@
       .sort((a, b) => Number(a.e.congress) - Number(b.e.congress))
       .map(({ e, c }) => ({
         congress: String(e.congress), ended: Boolean(e.ended), bills: c.introduced_bills, summarized: c.introduced_summarized,
-        waiting: c.introduced_bills - c.introduced_summarized, share: c.introduced_summarized / c.introduced_bills,
+        otherStage: c.summarized_other_stage ?? 0,
+        waiting: c.introduced_bills - c.introduced_summarized - (c.summarized_other_stage ?? 0),
+        share: (c.introduced_summarized + (c.summarized_other_stage ?? 0)) / c.introduced_bills,
         median: c.median_lag_printed, afterEnd: c.summaries_after_end,
       }));
   }
@@ -239,7 +249,7 @@
   /** Top n records with no summary by whole days from text_date to asOf (ISO), descending, as copies carrying days_waiting; ties by bill number ascending. */
   function oldestWaiting(records, asOf, n = 10) {
     return records
-      .filter((r) => r.stage != null && r.summary_date == null)
+      .filter((r) => r.stage != null && !isSummarized(r))
       .map((r) => ({ ...r, days_waiting: utcDays(asOf) - utcDays(r.text_date) }))
       .sort((a, b) => b.days_waiting - a.days_waiting || byNumber(a, b))
       .slice(0, n);

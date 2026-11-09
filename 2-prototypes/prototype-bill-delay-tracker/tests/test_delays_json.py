@@ -1,3 +1,4 @@
+import csv
 import json
 import shutil
 import subprocess
@@ -27,11 +28,13 @@ class DelaysJson(unittest.TestCase):
             "BILLS-118hr2ih,118,hr,2,ih,2023-01-10,,Two\n"
             "BILLS-118hres3ih,118,hres,3,ih,2023-02-01,,Three\n"
             "BILLS-118s4is,118,s,4,is,,,Undated\n"
-            "BILLS-118s5is,118,s,5,is,2064-03-01,,Misprinted year\n")
+            "BILLS-118s5is,118,s,5,is,2064-03-01,,Misprinted year\n"
+            "BILLS-118s6is,118,s,6,is,2023-03-01,,Summarized only as a law\n")
         (old / "summaries.csv").write_text(
             "congress,bill_type,number,version_code,action_desc,action_date,update_date,current_chapter,last_summary_update_date\n"
             "118,hr,1,00,Introduced in House,2023-01-09,2023-01-29T00:00:00Z,,2023-01-29T00:00:00Z\n"
-            "118,hres,3,00,Introduced in House,2023-02-01,2025-02-01T00:00:00Z,,2025-02-01T00:00:00Z\n")
+            "118,hres,3,00,Introduced in House,2023-02-01,2025-02-01T00:00:00Z,,2025-02-01T00:00:00Z\n"
+            "118,s,6,49,Public Law,2024-06-25,2024-08-29T00:00:00Z,,2024-08-29T00:00:00Z\n")
         subprocess.run([sys.executable, str(PROTO / "delays.py"), "--data-dir", str(cls.root),
                         "--as-of", "2026-10-14"], check=True, capture_output=True)
         cls.doc = json.loads((cls.tmp / "delays.json").read_text())
@@ -61,7 +64,7 @@ class DelaysJson(unittest.TestCase):
 
     def test_comparison_measures_from_the_printed_date_per_type(self):
         c = self.old["comparison"]
-        self.assertEqual(c["all"]["introduced_bills"], 3)  # the undated s4 is left out
+        self.assertEqual(c["all"]["introduced_bills"], 4)  # the undated s4 and the misprinted s5 are left out
         self.assertEqual(c["all"]["introduced_summarized"], 2)
         self.assertEqual(c["hr"]["median_lag_printed"], 20)  # 2023-01-09 to 2023-01-29
         self.assertEqual(c["hres"]["introduced_bills"], 1)
@@ -70,11 +73,24 @@ class DelaysJson(unittest.TestCase):
     def test_undated_versions_are_counted_not_measured(self):
         self.assertEqual(self.old["versions_without_date"], 1)
         self.assertEqual(self.old["versions_dated_after_as_of"], 1)  # the 2064 misprint, as of 2026-10-14
-        self.assertEqual(self.old["text_versions"], 3)
+        self.assertEqual(self.old["text_versions"], 4)
         self.assertEqual(self.old["measures"], [])  # no size columns, no size measures
 
+    def test_bill_summarized_only_at_a_later_stage_is_not_waiting(self):
+        # like S. 1869 of the 115th: introduced text, one CRS summary, at Public Law
+        c = self.old["comparison"]
+        self.assertEqual(c["all"]["summarized_other_stage"], 1)
+        self.assertEqual(c["s"]["introduced_summarized"], 0)  # no introduced summary, so no introduced lag
+        records = json.loads((self.root / "118" / "delays.json").read_text())["records"]
+        r = next(r for r in records if r["type"] == "s" and r["number"] == "6")
+        self.assertEqual((r["stage"], r["lag_days"], r["other_summary_date"]), ("introduced", None, "2024-08-29"))
+        with (self.root / "118" / "awaiting.csv").open(newline="") as f:
+            self.assertNotIn(("s", "6"), [(w["bill_type"], w["number"]) for w in csv.DictReader(f)])
+        self.assertEqual(self.old["introduced_awaiting_summary"], 1)  # only hr 2 waits
+        self.assertEqual(self.old["bills_summarized"], 3)  # hr 1, hres 3 and s 6
+
     def test_bill_types_listed_from_the_data(self):
-        self.assertEqual(sorted(self.old["bill_types"]), ["hr", "hres"])
+        self.assertEqual(sorted(self.old["bill_types"]), ["hr", "hres", "s"])
 
     def test_envelope(self):
         self.assertEqual(self.doc["as_of"], "2026-10-14")

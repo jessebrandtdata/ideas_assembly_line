@@ -68,6 +68,11 @@ function renderExceptions(records, introduced) {
   const late = introduced.filter((r) => r.summary_date !== null && r.summary_date > ends.get(String(r.congress))).length;
   document.getElementById('after-end-count').textContent = fmt(late);
   document.getElementById('after-end').hidden = late === 0;
+  // bills whose only CRS summaries are for later stages: summarized, so not waiting, but with no introduced-stage lag
+  const laterOnly = new Set(introduced.filter((r) => r.lag_days == null && r.other_summary_date != null)
+    .map((r) => `${r.congress}-${r.type}${r.number}`)).size;
+  document.getElementById('later-only-count').textContent = fmt(laterOnly);
+  document.getElementById('later-only').hidden = laterOnly === 0;
 }
 
 function renderHistogram(records, state) {
