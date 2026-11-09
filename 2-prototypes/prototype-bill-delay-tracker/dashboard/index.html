@@ -43,7 +43,7 @@ figure { margin: 0 0 24px; display: flex; flex-direction: column; }
 .error { color: var(--red); font-weight: 600; }
 .loading { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; margin: 0 0 12px; padding: 10px 14px;
   background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--blue); border-radius: 6px; font-size: 14px; }
-.loading[hidden] { display: none; }
+.loading[hidden], figure[hidden] { display: none; }
 .spinner { width: 16px; height: 16px; border: 2px solid var(--line); border-top-color: var(--blue); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation: none; border-top-color: var(--line); background: var(--blue); } }
@@ -59,7 +59,6 @@ body.is-loading .cards, body.is-loading figure, body.is-loading .lists, body.is-
 <div id="loading" class="loading" role="status" aria-live="polite" hidden><span class="spinner" aria-hidden="true"></span><span id="loading-text">Loading…</span></div>
 <div id="cards" class="cards"></div>
 <p id="pre-text" class="presumm"></p>
-<figure id="by-congress"><div class="export-row" data-figure="by-congress" data-label="by Congress"></div><div class="chart"></div></figure>
 <figure id="histogram">
   <div id="hist-chart"></div>
   <div class="strip">
@@ -68,6 +67,7 @@ body.is-loading .cards, body.is-loading figure, body.is-loading .lists, body.is-
   </div>
   <div class="export-row" data-figure="histogram" data-label="histogram"></div>
 </figure>
+<figure id="by-congress"><div class="export-row" data-figure="by-congress" data-label="by Congress"></div><div class="chart"></div></figure>
 <figure id="timeseries"><div class="export-row" data-figure="timeseries" data-label="share by month"></div><div class="chart"></div></figure>
 <figure id="cumulative"><div class="export-row" data-figure="cumulative" data-label="cumulative bills"></div><div class="chart"></div></figure>
 <figure id="cumulative-pages"><div class="export-row" data-figure="cumulative-pages" data-label="cumulative size"></div><div class="chart"></div></figure>

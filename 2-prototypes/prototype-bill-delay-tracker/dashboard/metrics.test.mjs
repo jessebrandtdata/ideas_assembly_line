@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 // ES modules are blocked), so it arrives here as one default object.
 import metrics from './metrics.js';
 
-const { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativeSize, measureOptions, histogramMax, dateBounds, longestLags, oldestWaiting, billLabel, billUrl, ordinal, exportName, toCsv, typeOptions, congressLabel, defaultCongress, congressSeries, mergeCongresses, allCongressesLabel } = metrics;
+const { headerMetrics, binLags, filterRecords, monthlySeries, cumulativeSeries, cumulativeSize, measureOptions, histogramMax, dateBounds, longestLags, oldestWaiting, billLabel, billUrl, ordinal, exportName, toCsv, typeOptions, congressLabel, defaultCongress, congressSeries, mergeCongresses, allCongressesLabel, congressesIn } = metrics;
 
 const rec = (o) => ({ type: 'hr', number: '1', stage: 'introduced', text_date: '2025-01-10',
   summary_date: null, lag_days: null, pages: null, reported: false, title: 't', ...o });
@@ -281,6 +281,14 @@ test('binLags handles every Congress pooled (300,000 lags) without overflowing t
   const bins = binLags(many, 30);
   assert.equal(bins.length, Math.floor(4999 / 30) + 1);
   assert.equal(bins.reduce((s, b) => s + b.count, 0), 300000);
+});
+
+test('congressesIn lists the Congresses the records come from, oldest first', () => {
+  const pooled = mergeCongresses([['119', { records: [rec(), rec({ number: '2' })] }], ['9', { records: [rec()] }],
+    ['110', { records: [rec()] }]]);
+  assert.deepEqual(congressesIn(pooled), ['9', '110', '119']);
+  assert.deepEqual(congressesIn([rec()]), []); // untagged records name no Congress
+  assert.deepEqual(congressesIn([]), []);
 });
 
 test('allCongressesLabel spans the lowest and highest Congress', () => {

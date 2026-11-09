@@ -4,7 +4,7 @@
 // <script> tag when it is first picked, which file:// pages allow where fetch() is blocked.
 'use strict';
 
-const { headerMetrics, binLags, histogramMax, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativeSize, measureOptions, longestLags, oldestWaiting, billLabel, billUrl, ordinal, exportName, toCsv, typeOptions, congressLabel, defaultCongress, congressSeries, mergeCongresses, allCongressesLabel } = window.BillDelayMetrics;
+const { headerMetrics, binLags, histogramMax, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativeSize, measureOptions, longestLags, oldestWaiting, billLabel, billUrl, ordinal, exportName, toCsv, typeOptions, congressLabel, defaultCongress, congressSeries, mergeCongresses, allCongressesLabel, congressesIn } = window.BillDelayMetrics;
 
 // The Congressional Tech site's coverage colors (apps/site Dashboard.tsx): "has it" is the primary
 // blue, "missing it" is the gold. Here a bill that has its summary is blue, one still waiting is gold.
@@ -258,13 +258,18 @@ function renderTimeseries(records, state) {
   monthAxis(topY + topH + 14);
 }
 
-/** Every Congress in the index side by side: the share of introduced bills with a CRS summary (top) and the median days
- *  from the printed date to the summary (bottom), for the bill type in view. The Congress in view is outlined. */
+/** The Congresses in view side by side: the share of introduced bills with a CRS summary (top) and the median days from
+ *  the printed date to the summary (bottom), for the bill type in view. Shown only when the loaded records span more than
+ *  one Congress, read from the records themselves, so any future selection of several Congresses gets it too. */
 function renderByCongress(state) {
-  const series = congressSeries(state.congresses, state.type);
+  const inView = congressesIn(state.records);
+  const series = congressSeries(state.congresses.filter((e) => inView.includes(String(e.congress))), state.type);
+  const figure = document.getElementById('by-congress');
   const fig = d3.select('#by-congress .chart').html('');
-  if (series.length < 2) { // one Congress is not a comparison; the rest of the page already shows it
-    fig.append('p').attr('class', 'note').text(series.length ? 'Collect more Congresses (collect_warehouse.py --congress all) to compare them here.' : '');
+  figure.hidden = inView.length < 2; // one Congress is not a comparison; the rest of the page already shows it
+  if (figure.hidden) return;
+  if (series.length < 2) {
+    fig.append('p').attr('class', 'note').text('Fewer than two of these Congresses have bills of this type.');
     return;
   }
   const W = 920, left = 76, right = 16, topY = 58, topH = 120, gap = 40, lowH = 130, H = topY + topH + gap + lowH + 44;

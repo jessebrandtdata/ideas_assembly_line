@@ -213,6 +213,13 @@
     return out;
   }
 
+  /** The Congresses the records come from, as strings, oldest first (records are tagged with their Congress on load). */
+  function congressesIn(records) {
+    const seen = new Set();
+    for (const r of records) if (r.congress != null) seen.add(String(r.congress));
+    return [...seen].sort((a, b) => Number(a) - Number(b));
+  }
+
   /** Header for the pooled view: "All Congresses (108th–119th)", from the lowest and highest number in the index. */
   function allCongressesLabel(entries) {
     const ns = entries.map((e) => Number(e.congress));
@@ -256,7 +263,7 @@
   }
 
   // Dual export: CommonJS for `node --test`, a window global for the page (see the header comment).
-  const api = { headerMetrics, histogramMax, binLags, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativeSize, measureOptions, billLabel, ordinal, billUrl, longestLags, oldestWaiting, exportName, toCsv, typeOptions, congressLabel, defaultCongress, congressSeries, mergeCongresses, allCongressesLabel };
+  const api = { headerMetrics, histogramMax, binLags, filterRecords, dateBounds, monthlySeries, cumulativeSeries, cumulativeSize, measureOptions, billLabel, ordinal, billUrl, longestLags, oldestWaiting, exportName, toCsv, typeOptions, congressLabel, defaultCongress, congressSeries, mergeCongresses, allCongressesLabel, congressesIn };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else window.BillDelayMetrics = api;
 })();
