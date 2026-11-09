@@ -1,6 +1,6 @@
 {
  "as_of": "2026-11-09",
- "computed_at": "2026-11-09T08:33:45+00:00",
+ "computed_at": "2026-11-09T20:13:21+00:00",
  "congress": "109",
  "start": "2005-01-03",
  "end": "2007-01-02",
@@ -15,33 +15,34 @@
   "hjres",
   "sjres"
  ],
- "bills_with_text": 13067,
- "text_versions": 16931,
+ "bills_with_text": 13066,
+ "text_versions": 16930,
  "versions_without_date": 472,
- "versions_without_ingest_date": 16931,
+ "versions_dated_after_as_of": 1,
+ "versions_without_ingest_date": 16930,
  "bills_summarized": 13068,
  "bills_reported_by_committee": 1083,
- "introduced_with_summary": 12141,
+ "introduced_with_summary": 12140,
  "introduced_awaiting_summary": 0,
  "pages": {
   "versions_with_count": 0,
-  "versions_total": 16931,
+  "versions_total": 16930,
   "total": 0,
   "mean": null
  },
  "delay_days": {
-  "n": 14787,
-  "mean": 45.0,
-  "median": 30,
+  "n": 14786,
+  "mean": 46.5,
+  "median": 30.0,
   "max": 5718
  },
  "by_stage": {
   "introduced": {
-   "n": 12141,
-   "mean": 43.3,
-   "median": 30,
+   "n": 12140,
+   "mean": 45.1,
+   "median": 30.0,
    "max": 2082,
-   "min": -21902
+   "min": -282
   },
   "reported": {
    "n": 954,
@@ -303,29 +304,15 @@
    "awaiting": 0,
    "median_lag": 36,
    "p90_lag": 64
-  },
-  {
-   "month": "2066-06",
-   "summarized": 1,
-   "awaiting": 0,
-   "median_lag": -21902,
-   "p90_lag": -21902
   }
  ],
  "comparison": {
   "all": {
-   "introduced_bills": 12141,
-   "introduced_summarized": 12141,
+   "introduced_bills": 12140,
+   "introduced_summarized": 12140,
    "summaries_after_end": 269,
-   "median_lag_printed": 30,
+   "median_lag_printed": 30.0,
    "p90_lag_printed": 76
-  },
-  "s": {
-   "introduced_bills": 3942,
-   "introduced_summarized": 3942,
-   "summaries_after_end": 90,
-   "median_lag_printed": 29.0,
-   "p90_lag_printed": 79
   },
   "hconres": {
    "introduced_bills": 465,
@@ -347,6 +334,13 @@
    "summaries_after_end": 10,
    "median_lag_printed": 26,
    "p90_lag_printed": 60
+  },
+  "s": {
+   "introduced_bills": 3941,
+   "introduced_summarized": 3941,
+   "summaries_after_end": 90,
+   "median_lag_printed": 29,
+   "p90_lag_printed": 79
   },
   "hjres": {
    "introduced_bills": 99,

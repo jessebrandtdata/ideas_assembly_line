@@ -1,6 +1,6 @@
 {
  "as_of": "2026-10-14",
- "computed_at": "2026-11-09T08:03:58+00:00",
+ "computed_at": "2026-11-09T20:13:05+00:00",
  "congress": "119",
  "start": "2025-01-03",
  "end": "2027-01-02",
@@ -11,6 +11,7 @@
  "bills_with_text": 3,
  "text_versions": 6,
  "versions_without_date": 0,
+ "versions_dated_after_as_of": 0,
  "versions_without_ingest_date": 0,
  "bills_summarized": 3,
  "bills_reported_by_committee": 1,

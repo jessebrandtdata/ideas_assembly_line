@@ -867,22 +867,15 @@
     "hjres",
     "sjres"
    ],
-   "text_versions": 16931,
-   "versions_without_ingest_date": 16931,
+   "text_versions": 16930,
+   "versions_without_ingest_date": 16930,
    "comparison": {
     "all": {
-     "introduced_bills": 12141,
-     "introduced_summarized": 12141,
+     "introduced_bills": 12140,
+     "introduced_summarized": 12140,
      "summaries_after_end": 269,
-     "median_lag_printed": 30,
+     "median_lag_printed": 30.0,
      "p90_lag_printed": 76
-    },
-    "s": {
-     "introduced_bills": 3942,
-     "introduced_summarized": 3942,
-     "summaries_after_end": 90,
-     "median_lag_printed": 29.0,
-     "p90_lag_printed": 79
     },
     "hconres": {
      "introduced_bills": 465,
@@ -904,6 +897,13 @@
      "summaries_after_end": 10,
      "median_lag_printed": 26,
      "p90_lag_printed": 60
+    },
+    "s": {
+     "introduced_bills": 3941,
+     "introduced_summarized": 3941,
+     "summaries_after_end": 90,
+     "median_lag_printed": 29,
+     "p90_lag_printed": 79
     },
     "hjres": {
      "introduced_bills": 99,

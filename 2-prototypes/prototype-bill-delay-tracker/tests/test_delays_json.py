@@ -26,7 +26,8 @@ class DelaysJson(unittest.TestCase):
             "BILLS-118hr1ih,118,hr,1,ih,2023-01-09,,One\n"
             "BILLS-118hr2ih,118,hr,2,ih,2023-01-10,,Two\n"
             "BILLS-118hres3ih,118,hres,3,ih,2023-02-01,,Three\n"
-            "BILLS-118s4is,118,s,4,is,,,Undated\n")
+            "BILLS-118s4is,118,s,4,is,,,Undated\n"
+            "BILLS-118s5is,118,s,5,is,2064-03-01,,Misprinted year\n")
         (old / "summaries.csv").write_text(
             "congress,bill_type,number,version_code,action_desc,action_date,update_date,current_chapter,last_summary_update_date\n"
             "118,hr,1,00,Introduced in House,2023-01-09,2023-01-29T00:00:00Z,,2023-01-29T00:00:00Z\n"
@@ -68,6 +69,7 @@ class DelaysJson(unittest.TestCase):
 
     def test_undated_versions_are_counted_not_measured(self):
         self.assertEqual(self.old["versions_without_date"], 1)
+        self.assertEqual(self.old["versions_dated_after_as_of"], 1)  # the 2064 misprint, as of 2026-10-14
         self.assertEqual(self.old["text_versions"], 3)
         self.assertEqual(self.old["versions_without_ingest_date"], 3)
 

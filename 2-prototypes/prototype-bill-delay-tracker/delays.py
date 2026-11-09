@@ -147,9 +147,13 @@ def build(data_dir, congress, as_of):
         """last_summary_update_date, falling back to update_date for a row that lacks it."""
         return s["last_summary_update_date"] or s["update_date"]
 
-    # a version with no date of either kind cannot start a lag; it is left out and counted
-    versions = [v for v in all_versions if published(v)]
-    undated = len(all_versions) - len(versions)
+    # a version with no date of either kind cannot start a lag, and one dated after the as-of date has a date that
+    # cannot have happened yet (the warehouse has a 109th Congress bill printed "2066-06-07"); both are left out and
+    # counted, not repaired
+    dated = [v for v in all_versions if published(v)]
+    undated = len(all_versions) - len(dated)
+    versions = [v for v in dated if published(v)[:10] <= as_of.isoformat()]
+    future = len(dated) - len(versions)
 
     def printed(v):
         """The printed date, which orders a bill's editions; the ingest date for the few versions without one."""
@@ -238,6 +242,7 @@ def build(data_dir, congress, as_of):
                 "introduced_versions": len(intro_versions),
                 "introduced_without_ingest_date": sum(1 for v in intro_versions if v["package_id"] not in ingested),
                 "versions_without_date": undated,
+                "versions_dated_after_as_of": future,
                 "records": records}
     envelope_json = json.dumps(envelope, separators=(",", ":"))
     (data_dir / "delays.json").write_text(envelope_json + "\n")
@@ -292,6 +297,7 @@ def build(data_dir, congress, as_of):
         "bills_with_text": len(bills_with_text),
         "text_versions": len(versions),
         "versions_without_date": undated,
+        "versions_dated_after_as_of": future,
         "versions_without_ingest_date": without_ingest,
         "bills_summarized": len(bills_summarized),
         "bills_reported_by_committee": len(reported),

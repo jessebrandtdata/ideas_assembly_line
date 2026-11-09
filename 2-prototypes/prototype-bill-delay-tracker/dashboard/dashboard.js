@@ -86,8 +86,10 @@ function renderHistogram(records, state) {
   const y = d3.scaleLinear().domain([0, histogramMax(bins, includeWaiting ? m.waiting : 0)]).nice().range([H - bottom, top]);
   svg.append('g').attr('transform', `translate(${left},0)`).call(d3.axisLeft(y).ticks(6).tickFormat(fmt))
     .call((g) => g.select('.domain').remove()).selectAll('text').attr('fill', MUTED);
-  const every = Math.max(1, Math.ceil(48 / x.step())); // at least ~48 px per x label
   const binLabel = (b) => `${b.from}–${b.to - 1}`;
+  // room for the longest label at 9 px (~5.5 px a character) plus a gap: "0–29" needs less than "4200–4229"
+  const labelPx = binLabel(bins[bins.length - 1]).length * 5.5 + 14;
+  const every = Math.max(1, Math.ceil(labelPx / x.step()));
   const axis = d3.axisBottom(x).tickFormat((i) => (i === 'waiting' ? 'waiting' : binLabel(bins[i])));
   svg.append('g').attr('transform', `translate(0,${H - bottom})`).call(axis)
     .call((g) => g.select('.domain').remove())
