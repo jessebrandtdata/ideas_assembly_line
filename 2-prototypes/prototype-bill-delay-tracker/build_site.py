@@ -22,9 +22,9 @@ INDEX_FILES = ("congresses.js", "congresses.json")
 CONGRESS_FILES = ("delays.js", "stats.json", "delays.csv", "awaiting.csv")
 REDIRECT = """<!doctype html>
 <meta charset="utf-8">
-<title>Bill Delay Tracker</title>
+<title>Demo: Bill Delay Tracker</title>
 <meta http-equiv="refresh" content="0; url=dashboard/">
-<a href="dashboard/">Bill Delay Tracker</a>
+<a href="dashboard/">Demo: Bill Delay Tracker</a>
 """
 
 
