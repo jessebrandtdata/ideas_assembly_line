@@ -10,7 +10,7 @@ const { headerMetrics, binLags, histogramMax, filterRecords, dateBounds, monthly
 // blue, "missing it" is the gold. Here a bill that has its summary is blue, one still waiting is gold.
 const BLUE = '#104378', GOLD = '#eec05e', INK = '#1b1b1b', MUTED = '#565c65';
 let fmt; // assigned in main() once d3 is known to be loaded
-const day = (v) => (v === null ? '–' : `${Math.round(v)}`);
+const day = (v) => (v === null ? "–" : fmt(Math.round(v)));
 
 let congress = ''; // the Congress in view, set by showCongress()
 let asOf = ''; // that Congress's as_of date (ISO)
@@ -25,9 +25,13 @@ const state = { congresses: [], entry: null, congress: null, records: [], summar
   range: { from: null, to: null }, includeWaiting: true, width: 30,
   measure: null, measureLists: [] }; // the size measure shown, and the measure lists of the Congresses in view
 
-function card(label, value, note = '') {
-  return `<div class="card"><div class="value">${value}</div><div class="label">${label}</div><div class="note">${note}</div></div>`;
+function card(label, value, note = '', exact = '') {
+  const title = exact ? ` title="${exact}"` : '';
+  return `<div class="card"><div class="value"${title}>${value}</div><div class="label">${label}</div><div class="note">${note}</div></div>`;
 }
+
+/** A card value that fits the card: up to 9,999,999 in full, above that the short form (164.7M, 1.46B). */
+const cardNumber = (n) => (Math.abs(n) < 1e7 ? fmt(n) : d3.format('.3~s')(n).replace('G', 'B'));
 
 const measureWord = () => (state.measure || 'size').toLowerCase(); // "characters", "sections" or "pages"
 
@@ -35,7 +39,8 @@ function renderHeader(records, allEditions) {
   const m = headerMetrics(records, state.measure);
   const r = headerMetrics(allEditions); // reported needs the reported-stage records, which the page otherwise ignores
   const sizeCard = m.sizeCounted
-    ? card(`${measureWord()} of bill text`, fmt(m.sizeTotal), `${fmt(m.sizeCounted)} of ${fmt(m.versions)} introduced versions measured`)
+    ? card(`${measureWord()} of bill text`, cardNumber(m.sizeTotal), `${fmt(m.sizeCounted)} of ${fmt(m.versions)} introduced versions measured`,
+      fmt(m.sizeTotal))
     : card(`${measureWord()} of bill text`, '–', 'no parsed text for these bills');
   document.getElementById('cards').innerHTML = [
     sizeCard,
