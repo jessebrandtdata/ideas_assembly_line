@@ -93,6 +93,20 @@ class DelaysJson(unittest.TestCase):
         self.assertEqual(self.old["introduced_awaiting_summary"], 1)  # only hr 2 waits
         self.assertEqual(self.old["bills_summarized"], 3)  # hr 1, hres 3 and s 6
 
+    def test_govinfo_page_counts_fill_pages_and_missing_ones_stay_unmeasured(self):
+        old = self.root / "118-pages"
+        shutil.copytree(self.root / "118", old / "118")
+        (old / "118" / "govinfo.csv").write_text("package_id,pages,date_ingested\n"
+                                                 "BILLS-118hr1ih,12,2023-01-12\nBILLS-118hr2ih,,2023-01-13\n")
+        subprocess.run([sys.executable, str(PROTO / "delays.py"), "--data-dir", str(old), "--as-of", "2026-10-14"],
+                       check=True, capture_output=True)
+        doc = json.loads((old / "118" / "delays.json").read_text())
+        self.assertEqual(doc["measures"], ["pages"])
+        pages = {r["number"]: r["pages"] for r in doc["records"]}
+        self.assertEqual((pages["1"], pages["2"], pages["3"]), (12, None, None))  # no count is null, never 0
+        stats = json.loads((old / "118" / "stats.json").read_text())
+        self.assertEqual((stats["size"]["pages"]["total"], stats["size"]["pages"]["versions_with_value"]), (12, 1))
+
     def test_bill_types_listed_from_the_data(self):
         self.assertEqual(sorted(self.old["bill_types"]), ["hr", "hres", "s"])
 

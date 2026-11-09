@@ -34,6 +34,9 @@ function card(label, value, note = '', exact = '') {
 const cardNumber = (n) => (Math.abs(n) < 1e7 ? fmt(n) : d3.format('.3~s')(n).replace('G', 'B'));
 
 const measureWord = () => (state.measure || 'size').toLowerCase(); // "characters", "sections" or "pages"
+// what a bill without a value for the measure lacks: a page count comes from optional GovInfo lookups, characters and
+// sections from the warehouse's parsed text; either way it is unmeasured, never zero
+const unmeasuredNote = () => (state.measure === 'pages' ? 'no page counts looked up for these bills' : 'no parsed text for these bills');
 
 function renderHeader(records, allEditions) {
   const m = headerMetrics(records, state.measure);
@@ -41,7 +44,7 @@ function renderHeader(records, allEditions) {
   const sizeCard = m.sizeCounted
     ? card(`${measureWord()} of bill text`, cardNumber(m.sizeTotal), `${fmt(m.sizeCounted)} of ${fmt(m.versions)} introduced versions measured`,
       fmt(m.sizeTotal))
-    : card(`${measureWord()} of bill text`, '–', 'no parsed text for these bills');
+    : card(`${measureWord()} of bill text`, '–', unmeasuredNote());
   document.getElementById('cards').innerHTML = [
     sizeCard,
     card('bills summarized', fmt(m.summarized), `${fmt(m.waiting)} still waiting`),
@@ -515,7 +518,7 @@ function render(state) {
   const unmeasured = sizeSeries.length ? sizeSeries.at(-1).versionsWithoutSize : 0;
   renderCumulative('#cumulative-pages .chart', sizeSeries, ['sizeIssued', 'sizeSummarized'], [`${word} issued`, `${word} summarized`],
     `${scope}: ${word} of bill text issued, and ${word} covered by a CRS summary.`, word,
-    [unmeasured ? `${fmt(unmeasured)} versions without parsed text.` : '', `${word[0].toUpperCase()}${word.slice(1)} of introduced text versions.`]
+    [unmeasured ? `${fmt(unmeasured)} versions ${state.measure === 'pages' ? 'without a page count' : 'without parsed text'}, left out of the totals.` : '', `${word[0].toUpperCase()}${word.slice(1)} of introduced text versions.`]
       .filter(Boolean).join(' '));
 }
 

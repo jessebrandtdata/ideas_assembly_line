@@ -16,7 +16,8 @@ last_summary_update_date, the earliest revision the warehouse retains, so a summ
 before the warehouse kept revisions can read slower than it was.
 
 Size: each record carries whichever of pages, sections and characters the Congress has values for
-(versions.csv columns; pages stays empty until the warehouse publishes a page count).
+(versions.csv columns; pages comes from the warehouse once it publishes a page count, or from govinfo.csv,
+the optional GovInfo lookups of collect_govinfo.py; a printing without a count is unmeasured, not zero).
 """
 import argparse
 import csv
@@ -141,6 +142,12 @@ def build(data_dir, congress, as_of):
     if not all_versions:
         return None
     summaries = read_csv(data_dir / "summaries.csv")
+    # page counts from the optional GovInfo lookups (collect_govinfo.py) fill the pages column wherever the warehouse
+    # left it empty; a printing with no count stays empty, counted as unmeasured, never as zero pages
+    looked_up = {r["package_id"]: r["pages"] for r in read_csv(data_dir / "govinfo.csv") if (r.get("pages") or "").isdigit()}
+    for v in all_versions:
+        if not (v.get("pages") or "").isdigit() and v["package_id"] in looked_up:
+            v["pages"] = looked_up[v["package_id"]]
     # the size measures this Congress has any value for, in SIZE_MEASURES order
     measures = [m for m in SIZE_MEASURES if any((v.get(m) or "").isdigit() for v in all_versions)]
 

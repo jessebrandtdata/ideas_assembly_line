@@ -1,6 +1,6 @@
 {
  "as_of": "2026-11-09",
- "computed_at": "2026-11-09T20:57:42+00:00",
+ "computed_at": "2026-11-09T21:07:01+00:00",
  "congress": "119",
  "start": "2025-01-03",
  "end": "2027-01-02",
@@ -24,10 +24,17 @@
  "introduced_with_summary": 6000,
  "introduced_awaiting_summary": 13162,
  "measures": [
+  "pages",
   "characters",
   "sections"
  ],
  "size": {
+  "pages": {
+   "versions_with_value": 23040,
+   "versions_total": 23040,
+   "total": 268206,
+   "mean": 11.6
+  },
   "characters": {
    "versions_with_value": 23016,
    "versions_total": 23040,

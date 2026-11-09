@@ -19,10 +19,17 @@
    ],
    "text_versions": 23040,
    "measures": [
+    "pages",
     "characters",
     "sections"
    ],
    "size": {
+    "pages": {
+     "versions_with_value": 23040,
+     "versions_total": 23040,
+     "total": 268206,
+     "mean": 11.6
+    },
     "characters": {
      "versions_with_value": 23016,
      "versions_total": 23040,
