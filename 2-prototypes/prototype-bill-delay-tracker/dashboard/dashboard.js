@@ -561,9 +561,8 @@ async function main() {
     state.congresses = index.congresses;
     const newest = defaultCongress(state.congresses);
     if (newest === null) throw new Error('no Congress in data/congresses.js has an introduced bill');
-    // the page opens on every Congress pooled; with a single Congress in the data that is just that Congress
-    const usable = state.congresses.filter((e) => (e.comparison?.all?.introduced_bills ?? 0) > 0);
-    const first = usable.length > 1 ? ALL : newest;
+    // the page opens on the newest Congress, one file to load; "All Congresses" heads the picker, one click away
+    const first = newest;
     state.congress = String(first);
     setupExports();
     await showCongress(first);
