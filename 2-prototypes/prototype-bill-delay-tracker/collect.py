@@ -260,6 +260,20 @@ def collect_summaries(data_dir, key, congress, since, max_requests, page_size):
     return rows, n
 
 
+def merge_cache(src_dir, dst_dir, name, fields):
+    """Add to dst_dir/name every row of src_dir/name whose package_id it lacks; existing rows are kept as they are.
+    A no-op when either folder is None or the source file does not exist."""
+    if src_dir is None or dst_dir is None or not (src_dir / name).exists():
+        return 0
+    dst = read_csv(dst_dir / name)
+    have = {r["package_id"] for r in dst}
+    new = [r for r in read_csv(src_dir / name) if r["package_id"] not in have]
+    if new or not (dst_dir / name).exists():
+        dst_dir.mkdir(parents=True, exist_ok=True)
+        write_csv(dst_dir / name, dst + [{k: r.get(k, "") for k in fields} for r in new], fields)
+    return len(new)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--congress", default="current,previous",
@@ -274,6 +288,10 @@ def main():
     ap.add_argument("--max-summary-requests", type=int, default=4, help="Congress.gov summary list pages")
     ap.add_argument("--summary-page-size", type=int, default=250)
     ap.add_argument("--skip", nargs="*", default=[], choices=["versions", "pages", "ingest", "summaries"])
+    ap.add_argument("--cache-dir", type=Path,
+                    help="a second home for pages.csv and ingest.csv (<cache-dir>/<congress>/), merged both ways: "
+                         "rows found there are added before the lookups and every row is written back after, so a "
+                         "CI cache carries lookups between runs without ever replacing rows already in --data-dir")
     a = ap.parse_args()
     try:
         congresses = parse_congresses(a.congress, date.today())
@@ -296,10 +314,15 @@ def main():
         if not versions:
             print(f"  no text versions for Congress {congress} on disk; nothing to look up", file=sys.stderr)
             continue
+        cache_dir = a.cache_dir / str(congress) if a.cache_dir else None
         if "pages" not in a.skip:
+            merge_cache(cache_dir, data_dir, "pages.csv", ["package_id", "pages"])
             left["pages"] -= collect_pages(data_dir, key, versions, left["pages"])[1]
+            merge_cache(data_dir, cache_dir, "pages.csv", ["package_id", "pages"])
         if "ingest" not in a.skip:
+            merge_cache(cache_dir, data_dir, "ingest.csv", INGEST_FIELDS)
             left["ingest"] -= collect_ingest(data_dir, key, versions, left["ingest"])[1]
+            merge_cache(data_dir, cache_dir, "ingest.csv", INGEST_FIELDS)
         if "summaries" not in a.skip and left["summaries"] > 0:
             left["summaries"] -= collect_summaries(data_dir, key, congress, since, left["summaries"],
                                                    a.summary_page_size)[1]

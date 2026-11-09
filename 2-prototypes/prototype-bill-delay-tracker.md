@@ -43,7 +43,14 @@ echo YOUR_KEY > ~/.data.gov.api.key
 python3 collect.py --skip versions summaries --max-page-lookups 200 --max-ingest-lookups 200
 python3 delays.py
 # open dashboard/index.html in a browser (no server needed; or serve the folder and open /dashboard/)
+python3 build_site.py --out _site   # optional: the same static site the Pages workflow publishes
 ```
+
+## Data in git, data built
+
+The bulk data is not committed. `collect_warehouse.py` and `delays.py` rebuild it in about a minute with no key, so git keeps only what is small or slow to rebuild: `data/congresses.json` and, per Congress, `stats.json` and `warehouse.json` (a dated snapshot of the numbers), plus the 119th Congress's `pages.csv` and `ingest.csv` (one GovInfo call per text version). `.gitignore` lists the rest. This follows the Congressional Tech repo, which keeps raw caches off `main` and builds its site's data in Actions.
+
+`.github/workflows/bill-delay-tracker.yml` publishes the dashboard to GitHub Pages every day at 07:00 UTC (the warehouse publishes its nightly generation around 04:30 UTC), on demand, and on pushes to `main` that touch the prototype: it reads the warehouse, looks up GovInfo page counts and ingest dates for the Congress in session when the `DATA_GOV_API_KEY` secret is set (a GitHub cache carries them between runs, merged with the committed files and never replacing a row), runs `delays.py` and the tests, and deploys what `build_site.py` assembles. It commits nothing back. Repository settings it needs: Pages source "GitHub Actions"; on a fork, Actions enabled; the secret is optional (without it new versions are measured from the printed date and the page says how many).
 
 `collect.py --help` lists the caps. Rerunning only fetches what is new; `collect_warehouse.py` rewrites its two files per Congress from the current generation each run. The same three commands with no `--congress` are the refresh: the warehouse step re-reads every Congress on disk plus the current one, `collect.py` looks up the current and previous Congress, `delays.py` rebuilds every folder. On 2027-01-03 that refresh starts a `data/120/` folder by itself, as soon as the warehouse lists a 120th Congress text version, and keeps finishing the 119th. The original all-API path (`python3 collect.py --congress 119 --max-version-pages 60 --max-summary-requests 60 ...`) still works.
 
@@ -61,7 +68,7 @@ Regenerate with the two commands in "How to run it"; `collect.py` only fetches w
 
 ## Across Congresses, snapshot of 2026-11-09
 
-`data/108/` through `data/119/` are read from the warehouse generation published 2026-11-08, all eight measure types. Introduced bills (every type), measured from the date printed on the bill to the summary, which is the one start every Congress has:
+Built from the warehouse generation published 2026-11-08, all eight measure types; each Congress's committed `stats.json` holds these numbers. Introduced bills (every type), measured from the date printed on the bill to the summary, which is the one start every Congress has:
 
 | Congress | introduced | summarized | median days |
 | --- | --- | --- | --- |
@@ -85,4 +92,4 @@ Through the 117th CRS summarized every introduced measure; the 118th left 39% wi
 - **Old Congresses' ingest dates.** GovInfo's `dateIngested` for a bill printed before GovInfo's predecessor was migrated is the migration (a 110th Congress introduced bill reads 2010-09-21), not a posting date. `collect.py` looks up the current and previous Congress by default; looking up ingest dates for older Congresses spends API calls on dates that do not mean publication, so they are measured from the printed date. A 113th Congress bill's ingest date is 13 days after its printed date, so the switch is somewhere before that.
 - `DEMO_KEY` is throttled to about 30 requests per hour per IP and the Congress.gov summaries list endpoint is slow (sometimes over a minute per page), so a full-Congress sweep needs a registered key and patience.
 - Page counts cover only the versions looked up so far; the dashboard says how many versions are not yet counted.
-- No daily refresh job, no history, no site integration. Those are the production tool.
+- A daily Pages build, but no history of first-seen dates and no site integration. Those are the production tool.
