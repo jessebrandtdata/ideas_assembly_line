@@ -51,7 +51,8 @@
   function binLags(records, width) {
     const lags = records.filter((r) => r.lag_days !== null && r.lag_days >= 0).map((r) => r.lag_days);
     if (lags.length === 0) return [];
-    const count = Math.floor(Math.max(0, ...lags) / width) + 1;
+    // a loop, not Math.max(...lags): spreading every Congress's lags as arguments overflows the call stack
+    const count = Math.floor(lags.reduce((m, v) => (v > m ? v : m), 0) / width) + 1;
     const bins = Array.from({ length: count }, (_, i) => ({ from: i * width, to: (i + 1) * width, count: 0 }));
     for (const lag of lags) bins[Math.min(Math.max(0, Math.floor(lag / width)), count - 1)].count += 1;
     return bins;

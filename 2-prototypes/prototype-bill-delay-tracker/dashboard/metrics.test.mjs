@@ -260,6 +260,13 @@ test('the same bill number in two Congresses is two bills', () => {
   assert.deepEqual(waiting.map((r) => r.congress), ['117', '119']); // equal ages: ordered by Congress
 });
 
+test('binLags handles every Congress pooled (300,000 lags) without overflowing the stack', () => {
+  const many = Array.from({ length: 300000 }, (_, i) => ({ lag_days: i % 5000 }));
+  const bins = binLags(many, 30);
+  assert.equal(bins.length, Math.floor(4999 / 30) + 1);
+  assert.equal(bins.reduce((s, b) => s + b.count, 0), 300000);
+});
+
 test('allCongressesLabel spans the lowest and highest Congress', () => {
   assert.equal(allCongressesLabel([entry(119), entry(108), entry(113)]), 'All Congresses (108th–119th)');
 });
