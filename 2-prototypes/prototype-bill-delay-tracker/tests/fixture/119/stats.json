@@ -1,0 +1,191 @@
+{
+ "as_of": "2026-10-14",
+ "computed_at": "2026-11-09T20:57:40+00:00",
+ "congress": "119",
+ "start": "2025-01-03",
+ "end": "2027-01-02",
+ "ended": false,
+ "bill_types": [
+  "hr"
+ ],
+ "bills_with_text": 3,
+ "text_versions": 6,
+ "versions_without_date": 0,
+ "versions_dated_after_as_of": 0,
+ "bills_summarized": 3,
+ "bills_reported_by_committee": 1,
+ "introduced_with_summary": 1,
+ "introduced_awaiting_summary": 1,
+ "measures": [
+  "pages",
+  "characters",
+  "sections"
+ ],
+ "size": {
+  "pages": {
+   "versions_with_value": 3,
+   "versions_total": 6,
+   "total": 3036,
+   "mean": 1012
+  },
+  "characters": {
+   "versions_with_value": 5,
+   "versions_total": 6,
+   "total": 5381300,
+   "mean": 1076260
+  },
+  "sections": {
+   "versions_with_value": 5,
+   "versions_total": 6,
+   "total": 2889,
+   "mean": 577.8
+  }
+ },
+ "delay_days": {
+  "n": 3,
+  "mean": 49.3,
+  "median": 19,
+  "max": 125
+ },
+ "by_stage": {
+  "introduced": {
+   "n": 1,
+   "mean": 4,
+   "median": 4,
+   "max": 4,
+   "min": 4
+  },
+  "reported": {
+   "n": 1,
+   "mean": 125,
+   "median": 125,
+   "max": 125,
+   "min": 125
+  },
+  "passed": {
+   "n": 1,
+   "mean": 19,
+   "median": 19,
+   "max": 19,
+   "min": 19
+  }
+ },
+ "introduced_histogram": [
+  {
+   "from": 0,
+   "to": 7,
+   "count": 1
+  },
+  {
+   "from": 7,
+   "to": 14,
+   "count": 0
+  },
+  {
+   "from": 14,
+   "to": 30,
+   "count": 0
+  },
+  {
+   "from": 30,
+   "to": 60,
+   "count": 0
+  },
+  {
+   "from": 60,
+   "to": 90,
+   "count": 0
+  },
+  {
+   "from": 90,
+   "to": 180,
+   "count": 0
+  },
+  {
+   "from": 180,
+   "to": 365,
+   "count": 0
+  },
+  {
+   "from": 365,
+   "to": null,
+   "count": 0
+  }
+ ],
+ "awaiting_histogram": [
+  {
+   "from": 0,
+   "to": 7,
+   "count": 1
+  },
+  {
+   "from": 7,
+   "to": 14,
+   "count": 0
+  },
+  {
+   "from": 14,
+   "to": 30,
+   "count": 0
+  },
+  {
+   "from": 30,
+   "to": 60,
+   "count": 0
+  },
+  {
+   "from": 60,
+   "to": 90,
+   "count": 0
+  },
+  {
+   "from": 90,
+   "to": 180,
+   "count": 0
+  },
+  {
+   "from": 180,
+   "to": 365,
+   "count": 0
+  },
+  {
+   "from": 365,
+   "to": null,
+   "count": 0
+  }
+ ],
+ "monthly_introduced": [
+  {
+   "month": "2026-10",
+   "summarized": 1,
+   "awaiting": 1,
+   "median_lag": 4,
+   "p90_lag": 4
+  }
+ ],
+ "comparison": {
+  "all": {
+   "introduced_bills": 2,
+   "introduced_summarized": 1,
+   "summarized_other_stage": 0,
+   "summaries_after_end": 0,
+   "median_lag_printed": 4,
+   "p90_lag_printed": 4
+  },
+  "hr": {
+   "introduced_bills": 2,
+   "introduced_summarized": 1,
+   "summarized_other_stage": 0,
+   "summaries_after_end": 0,
+   "median_lag_printed": 4,
+   "p90_lag_printed": 4
+  }
+ },
+ "summaries_collected": 4,
+ "caveats": [
+  "delay = date of the bill's first CRS summary, whatever version it describes, minus the date printed on the introduced text, which runs days to weeks before the text is readable online",
+  "the summary date is the first retained publication; summaries first captured before the warehouse kept revisions carry their latest revision, which can be a re-publication",
+  "'awaiting' means a bill with introduced text and no CRS summary at any stage in the summaries collected so far",
+  "size is sections and characters of the warehouse's parsed bill text; the warehouse publishes no page count yet"
+ ]
+}

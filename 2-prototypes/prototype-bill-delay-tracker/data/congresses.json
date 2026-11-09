@@ -1,0 +1,1336 @@
+{
+ "congresses": [
+  {
+   "congress": "119",
+   "start": "2025-01-03",
+   "end": "2027-01-02",
+   "ended": false,
+   "as_of": "2026-11-09",
+   "file": "119/delays.js",
+   "bill_types": [
+    "hr",
+    "s",
+    "hres",
+    "sres",
+    "hjres",
+    "sjres",
+    "hconres",
+    "sconres"
+   ],
+   "text_versions": 23040,
+   "measures": [
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "characters": {
+     "versions_with_value": 23016,
+     "versions_total": 23040,
+     "total": 236839043,
+     "mean": 10290.2
+    },
+    "sections": {
+     "versions_with_value": 23016,
+     "versions_total": 23040,
+     "total": 338161,
+     "mean": 14.7
+    }
+   },
+   "comparison": {
+    "all": {
+     "introduced_bills": 19162,
+     "introduced_summarized": 6000,
+     "summarized_other_stage": 382,
+     "summaries_after_end": 0,
+     "median_lag_printed": 115.0,
+     "p90_lag_printed": 415
+    },
+    "hr": {
+     "introduced_bills": 10909,
+     "introduced_summarized": 3507,
+     "summarized_other_stage": 264,
+     "summaries_after_end": 0,
+     "median_lag_printed": 108,
+     "p90_lag_printed": 409
+    },
+    "hres": {
+     "introduced_bills": 1511,
+     "introduced_summarized": 452,
+     "summarized_other_stage": 1,
+     "summaries_after_end": 0,
+     "median_lag_printed": 91.0,
+     "p90_lag_printed": 399
+    },
+    "hjres": {
+     "introduced_bills": 221,
+     "introduced_summarized": 107,
+     "summarized_other_stage": 3,
+     "summaries_after_end": 0,
+     "median_lag_printed": 44,
+     "p90_lag_printed": 272
+    },
+    "hconres": {
+     "introduced_bills": 119,
+     "introduced_summarized": 52,
+     "summarized_other_stage": 1,
+     "summaries_after_end": 0,
+     "median_lag_printed": 50.0,
+     "p90_lag_printed": 302
+    },
+    "s": {
+     "introduced_bills": 5597,
+     "introduced_summarized": 1649,
+     "summarized_other_stage": 99,
+     "summaries_after_end": 0,
+     "median_lag_printed": 156,
+     "p90_lag_printed": 444
+    },
+    "sjres": {
+     "introduced_bills": 219,
+     "introduced_summarized": 94,
+     "summarized_other_stage": 2,
+     "summaries_after_end": 0,
+     "median_lag_printed": 59.0,
+     "p90_lag_printed": 258
+    },
+    "sres": {
+     "introduced_bills": 559,
+     "introduced_summarized": 132,
+     "summarized_other_stage": 12,
+     "summaries_after_end": 0,
+     "median_lag_printed": 114.5,
+     "p90_lag_printed": 459
+    },
+    "sconres": {
+     "introduced_bills": 27,
+     "introduced_summarized": 7,
+     "summarized_other_stage": 0,
+     "summaries_after_end": 0,
+     "median_lag_printed": 34,
+     "p90_lag_printed": 251
+    }
+   }
+  },
+  {
+   "congress": "118",
+   "start": "2023-01-03",
+   "end": "2025-01-02",
+   "ended": true,
+   "as_of": "2026-11-09",
+   "file": "118/delays.js",
+   "bill_types": [
+    "hr",
+    "s",
+    "hres",
+    "sres",
+    "hjres",
+    "hconres",
+    "sjres",
+    "sconres"
+   ],
+   "text_versions": 22627,
+   "measures": [
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "characters": {
+     "versions_with_value": 22600,
+     "versions_total": 22627,
+     "total": 255139085,
+     "mean": 11289.3
+    },
+    "sections": {
+     "versions_with_value": 22600,
+     "versions_total": 22627,
+     "total": 359861,
+     "mean": 15.9
+    }
+   },
+   "comparison": {
+    "all": {
+     "introduced_bills": 18593,
+     "introduced_summarized": 11377,
+     "summarized_other_stage": 122,
+     "summaries_after_end": 469,
+     "median_lag_printed": 133,
+     "p90_lag_printed": 371
+    },
+    "hr": {
+     "introduced_bills": 10529,
+     "introduced_summarized": 6227,
+     "summarized_other_stage": 35,
+     "summaries_after_end": 206,
+     "median_lag_printed": 128,
+     "p90_lag_printed": 361
+    },
+    "hres": {
+     "introduced_bills": 1494,
+     "introduced_summarized": 1330,
+     "summarized_other_stage": 2,
+     "summaries_after_end": 45,
+     "median_lag_printed": 105.0,
+     "p90_lag_printed": 330
+    },
+    "sres": {
+     "introduced_bills": 494,
+     "introduced_summarized": 437,
+     "summarized_other_stage": 10,
+     "summaries_after_end": 31,
+     "median_lag_printed": 146,
+     "p90_lag_printed": 386
+    },
+    "s": {
+     "introduced_bills": 5566,
+     "introduced_summarized": 3063,
+     "summarized_other_stage": 70,
+     "summaries_after_end": 170,
+     "median_lag_printed": 167,
+     "p90_lag_printed": 401
+    },
+    "hjres": {
+     "introduced_bills": 230,
+     "introduced_summarized": 120,
+     "summarized_other_stage": 2,
+     "summaries_after_end": 9,
+     "median_lag_printed": 48.5,
+     "p90_lag_printed": 254
+    },
+    "hconres": {
+     "introduced_bills": 127,
+     "introduced_summarized": 109,
+     "summarized_other_stage": 2,
+     "summaries_after_end": 4,
+     "median_lag_printed": 76,
+     "p90_lag_printed": 294
+    },
+    "sconres": {
+     "introduced_bills": 36,
+     "introduced_summarized": 30,
+     "summarized_other_stage": 1,
+     "summaries_after_end": 1,
+     "median_lag_printed": 219.5,
+     "p90_lag_printed": 482
+    },
+    "sjres": {
+     "introduced_bills": 117,
+     "introduced_summarized": 61,
+     "summarized_other_stage": 0,
+     "summaries_after_end": 3,
+     "median_lag_printed": 81,
+     "p90_lag_printed": 281
+    }
+   }
+  },
+  {
+   "congress": "117",
+   "start": "2021-01-03",
+   "end": "2023-01-02",
+   "ended": true,
+   "as_of": "2026-11-09",
+   "file": "117/delays.js",
+   "bill_types": [
+    "hr",
+    "s",
+    "hres",
+    "sres",
+    "hconres",
+    "hjres",
+    "sjres",
+    "sconres"
+   ],
+   "text_versions": 21031,
+   "measures": [
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "characters": {
+     "versions_with_value": 20980,
+     "versions_total": 21031,
+     "total": 307127125,
+     "mean": 14639.0
+    },
+    "sections": {
+     "versions_with_value": 20980,
+     "versions_total": 21031,
+     "total": 399482,
+     "mean": 19.0
+    }
+   },
+   "comparison": {
+    "all": {
+     "introduced_bills": 17090,
+     "introduced_summarized": 17082,
+     "summarized_other_stage": 37,
+     "summaries_after_end": 2520,
+     "median_lag_printed": 103.0,
+     "p90_lag_printed": 344
+    },
+    "hr": {
+     "introduced_bills": 9663,
+     "introduced_summarized": 9657,
+     "summarized_other_stage": 21,
+     "summaries_after_end": 1461,
+     "median_lag_printed": 112,
+     "p90_lag_printed": 349
+    },
+    "hres": {
+     "introduced_bills": 1375,
+     "introduced_summarized": 1374,
+     "summarized_other_stage": 1,
+     "summaries_after_end": 140,
+     "median_lag_printed": 50.0,
+     "p90_lag_printed": 257
+    },
+    "hjres": {
+     "introduced_bills": 106,
+     "introduced_summarized": 106,
+     "summarized_other_stage": 0,
+     "summaries_after_end": 8,
+     "median_lag_printed": 25.0,
+     "p90_lag_printed": 149
+    },
+    "s": {
+     "introduced_bills": 5246,
+     "introduced_summarized": 5245,
+     "summarized_other_stage": 12,
+     "summaries_after_end": 841,
+     "median_lag_printed": 117,
+     "p90_lag_printed": 376
+    },
+    "sjres": {
+     "introduced_bills": 68,
+     "introduced_summarized": 68,
+     "summarized_other_stage": 0,
+     "summaries_after_end": 10,
+     "median_lag_printed": 39.0,
+     "p90_lag_printed": 251
+    },
+    "sres": {
+     "introduced_bills": 484,
+     "introduced_summarized": 484,
+     "summarized_other_stage": 2,
+     "summaries_after_end": 40,
+     "median_lag_printed": 55.0,
+     "p90_lag_printed": 185
+    },
+    "hconres": {
+     "introduced_bills": 116,
+     "introduced_summarized": 116,
+     "summarized_other_stage": 1,
+     "summaries_after_end": 15,
+     "median_lag_printed": 53.5,
+     "p90_lag_printed": 255
+    },
+    "sconres": {
+     "introduced_bills": 32,
+     "introduced_summarized": 32,
+     "summarized_other_stage": 0,
+     "summaries_after_end": 5,
+     "median_lag_printed": 69.5,
+     "p90_lag_printed": 343
+    }
+   }
+  },
+  {
+   "congress": "116",
+   "start": "2019-01-03",
+   "end": "2021-01-02",
+   "ended": true,
+   "as_of": "2026-11-09",
+   "file": "116/delays.js",
+   "bill_types": [
+    "hr",
+    "s",
+    "hres",
+    "sres",
+    "hconres",
+    "hjres",
+    "sjres",
+    "sconres"
+   ],
+   "text_versions": 20077,
+   "measures": [
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "characters": {
+     "versions_with_value": 20049,
+     "versions_total": 20077,
+     "total": 294211510,
+     "mean": 14674.6
+    },
+    "sections": {
+     "versions_with_value": 20049,
+     "versions_total": 20077,
+     "total": 394890,
+     "mean": 19.7
+    }
+   },
+   "comparison": {
+    "all": {
+     "introduced_bills": 15960,
+     "introduced_summarized": 15960,
+     "summarized_other_stage": 104,
+     "summaries_after_end": 3725,
+     "median_lag_printed": 172.0,
+     "p90_lag_printed": 533
+    },
+    "sjres": {
+     "introduced_bills": 75,
+     "introduced_summarized": 75,
+     "summarized_other_stage": 0,
+     "summaries_after_end": 6,
+     "median_lag_printed": 19,
+     "p90_lag_printed": 358
+    },
+    "hr": {
+     "introduced_bills": 9030,
+     "introduced_summarized": 9030,
+     "summarized_other_stage": 45,
+     "summaries_after_end": 2175,
+     "median_lag_printed": 182.0,
+     "p90_lag_printed": 539
+    },
+    "hres": {
+     "introduced_bills": 1124,
+     "introduced_summarized": 1124,
+     "summarized_other_stage": 6,
+     "summaries_after_end": 115,
+     "median_lag_printed": 83.5,
+     "p90_lag_printed": 370
+    },
+    "s": {
+     "introduced_bills": 4994,
+     "introduced_summarized": 4994,
+     "summarized_other_stage": 21,
+     "summaries_after_end": 1352,
+     "median_lag_printed": 202.0,
+     "p90_lag_printed": 573
+    },
+    "hjres": {
+     "introduced_bills": 106,
+     "introduced_summarized": 106,
+     "summarized_other_stage": 0,
+     "summaries_after_end": 10,
+     "median_lag_printed": 17.0,
+     "p90_lag_printed": 238
+    },
+    "sres": {
+     "introduced_bills": 480,
+     "introduced_summarized": 480,
+     "summarized_other_stage": 26,
+     "summaries_after_end": 54,
+     "median_lag_printed": 84.0,
+     "p90_lag_printed": 363
+    },
+    "hconres": {
+     "introduced_bills": 113,
+     "introduced_summarized": 113,
+     "summarized_other_stage": 4,
+     "summaries_after_end": 10,
+     "median_lag_printed": 61,
+     "p90_lag_printed": 342
+    },
+    "sconres": {
+     "introduced_bills": 38,
+     "introduced_summarized": 38,
+     "summarized_other_stage": 2,
+     "summaries_after_end": 3,
+     "median_lag_printed": 66.0,
+     "p90_lag_printed": 354
+    }
+   }
+  },
+  {
+   "congress": "115",
+   "start": "2017-01-03",
+   "end": "2019-01-02",
+   "ended": true,
+   "as_of": "2026-11-09",
+   "file": "115/delays.js",
+   "bill_types": [
+    "hr",
+    "s",
+    "hres",
+    "sres",
+    "hconres",
+    "hjres",
+    "sjres",
+    "sconres"
+   ],
+   "text_versions": 18033,
+   "measures": [
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "characters": {
+     "versions_with_value": 17976,
+     "versions_total": 18033,
+     "total": 225667626,
+     "mean": 12553.8
+    },
+    "sections": {
+     "versions_with_value": 17976,
+     "versions_total": 18033,
+     "total": 329180,
+     "mean": 18.3
+    }
+   },
+   "comparison": {
+    "all": {
+     "introduced_bills": 12869,
+     "introduced_summarized": 12869,
+     "summarized_other_stage": 104,
+     "summaries_after_end": 3600,
+     "median_lag_printed": 132,
+     "p90_lag_printed": 476
+    },
+    "hr": {
+     "introduced_bills": 7360,
+     "introduced_summarized": 7360,
+     "summarized_other_stage": 50,
+     "summaries_after_end": 2126,
+     "median_lag_printed": 149.0,
+     "p90_lag_printed": 502
+    },
+    "sres": {
+     "introduced_bills": 420,
+     "introduced_summarized": 420,
+     "summarized_other_stage": 10,
+     "summaries_after_end": 78,
+     "median_lag_printed": 64.0,
+     "p90_lag_printed": 260
+    },
+    "hjres": {
+     "introduced_bills": 146,
+     "introduced_summarized": 146,
+     "summarized_other_stage": 1,
+     "summaries_after_end": 5,
+     "median_lag_printed": 38.0,
+     "p90_lag_printed": 148
+    },
+    "hres": {
+     "introduced_bills": 970,
+     "introduced_summarized": 970,
+     "summarized_other_stage": 5,
+     "summaries_after_end": 145,
+     "median_lag_printed": 56.0,
+     "p90_lag_printed": 266
+    },
+    "s": {
+     "introduced_bills": 3742,
+     "introduced_summarized": 3742,
+     "summarized_other_stage": 34,
+     "summaries_after_end": 1225,
+     "median_lag_printed": 182.0,
+     "p90_lag_printed": 506
+    },
+    "hconres": {
+     "introduced_bills": 134,
+     "introduced_summarized": 134,
+     "summarized_other_stage": 4,
+     "summaries_after_end": 9,
+     "median_lag_printed": 40.5,
+     "p90_lag_printed": 106
+    },
+    "sconres": {
+     "introduced_bills": 33,
+     "introduced_summarized": 33,
+     "summarized_other_stage": 0,
+     "summaries_after_end": 5,
+     "median_lag_printed": 64,
+     "p90_lag_printed": 116
+    },
+    "sjres": {
+     "introduced_bills": 64,
+     "introduced_summarized": 64,
+     "summarized_other_stage": 0,
+     "summaries_after_end": 7,
+     "median_lag_printed": 52.0,
+     "p90_lag_printed": 232
+    }
+   }
+  },
+  {
+   "congress": "114",
+   "start": "2015-01-03",
+   "end": "2017-01-02",
+   "ended": true,
+   "as_of": "2026-11-09",
+   "file": "114/delays.js",
+   "bill_types": [
+    "hr",
+    "s",
+    "hres",
+    "sres",
+    "hconres",
+    "hjres",
+    "sconres",
+    "sjres"
+   ],
+   "text_versions": 15727,
+   "measures": [
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "characters": {
+     "versions_with_value": 15698,
+     "versions_total": 15727,
+     "total": 209895265,
+     "mean": 13370.8
+    },
+    "sections": {
+     "versions_with_value": 15698,
+     "versions_total": 15727,
+     "total": 299361,
+     "mean": 19.1
+    }
+   },
+   "comparison": {
+    "all": {
+     "introduced_bills": 11350,
+     "introduced_summarized": 11350,
+     "summarized_other_stage": 101,
+     "summaries_after_end": 919,
+     "median_lag_printed": 40.0,
+     "p90_lag_printed": 234
+    },
+    "hr": {
+     "introduced_bills": 6496,
+     "introduced_summarized": 6496,
+     "summarized_other_stage": 50,
+     "summaries_after_end": 573,
+     "median_lag_printed": 43.0,
+     "p90_lag_printed": 238
+    },
+    "hres": {
+     "introduced_bills": 774,
+     "introduced_summarized": 774,
+     "summarized_other_stage": 1,
+     "summaries_after_end": 15,
+     "median_lag_printed": 11.0,
+     "p90_lag_printed": 56
+    },
+    "hjres": {
+     "introduced_bills": 106,
+     "introduced_summarized": 106,
+     "summarized_other_stage": 1,
+     "summaries_after_end": 15,
+     "median_lag_printed": 19.0,
+     "p90_lag_printed": 158
+    },
+    "s": {
+     "introduced_bills": 3425,
+     "introduced_summarized": 3425,
+     "summarized_other_stage": 29,
+     "summaries_after_end": 295,
+     "median_lag_printed": 55,
+     "p90_lag_printed": 264
+    },
+    "sres": {
+     "introduced_bills": 309,
+     "introduced_summarized": 309,
+     "summarized_other_stage": 19,
+     "summaries_after_end": 9,
+     "median_lag_printed": 11,
+     "p90_lag_printed": 78
+    },
+    "hconres": {
+     "introduced_bills": 157,
+     "introduced_summarized": 157,
+     "summarized_other_stage": 0,
+     "summaries_after_end": 6,
+     "median_lag_printed": 12,
+     "p90_lag_printed": 63
+    },
+    "sconres": {
+     "introduced_bills": 43,
+     "introduced_summarized": 43,
+     "summarized_other_stage": 0,
+     "summaries_after_end": 3,
+     "median_lag_printed": 15,
+     "p90_lag_printed": 61
+    },
+    "sjres": {
+     "introduced_bills": 40,
+     "introduced_summarized": 40,
+     "summarized_other_stage": 1,
+     "summaries_after_end": 3,
+     "median_lag_printed": 23.0,
+     "p90_lag_printed": 106
+    }
+   }
+  },
+  {
+   "congress": "113",
+   "start": "2013-01-03",
+   "end": "2015-01-02",
+   "ended": true,
+   "as_of": "2026-11-09",
+   "file": "113/delays.js",
+   "bill_types": [
+    "hr",
+    "s",
+    "hres",
+    "sres",
+    "hjres",
+    "hconres",
+    "sjres",
+    "sconres"
+   ],
+   "text_versions": 13421,
+   "measures": [
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "characters": {
+     "versions_with_value": 13379,
+     "versions_total": 13421,
+     "total": 189498319,
+     "mean": 14163.9
+    },
+    "sections": {
+     "versions_with_value": 13379,
+     "versions_total": 13421,
+     "total": 261628,
+     "mean": 19.6
+    }
+   },
+   "comparison": {
+    "all": {
+     "introduced_bills": 9942,
+     "introduced_summarized": 9942,
+     "summarized_other_stage": 109,
+     "summaries_after_end": 411,
+     "median_lag_printed": 31.0,
+     "p90_lag_printed": 103
+    },
+    "hr": {
+     "introduced_bills": 5857,
+     "introduced_summarized": 5857,
+     "summarized_other_stage": 49,
+     "summaries_after_end": 270,
+     "median_lag_printed": 33,
+     "p90_lag_printed": 106
+    },
+    "hres": {
+     "introduced_bills": 623,
+     "introduced_summarized": 623,
+     "summarized_other_stage": 5,
+     "summaries_after_end": 5,
+     "median_lag_printed": 18,
+     "p90_lag_printed": 61
+    },
+    "s": {
+     "introduced_bills": 2879,
+     "introduced_summarized": 2879,
+     "summarized_other_stage": 24,
+     "summaries_after_end": 135,
+     "median_lag_printed": 37,
+     "p90_lag_printed": 112
+    },
+    "sres": {
+     "introduced_bills": 287,
+     "introduced_summarized": 287,
+     "summarized_other_stage": 26,
+     "summaries_after_end": 1,
+     "median_lag_printed": 15,
+     "p90_lag_printed": 64
+    },
+    "hconres": {
+     "introduced_bills": 103,
+     "introduced_summarized": 103,
+     "summarized_other_stage": 1,
+     "summaries_after_end": 0,
+     "median_lag_printed": 11,
+     "p90_lag_printed": 49
+    },
+    "hjres": {
+     "introduced_bills": 124,
+     "introduced_summarized": 124,
+     "summarized_other_stage": 2,
+     "summaries_after_end": 0,
+     "median_lag_printed": 11.0,
+     "p90_lag_printed": 41
+    },
+    "sjres": {
+     "introduced_bills": 44,
+     "introduced_summarized": 44,
+     "summarized_other_stage": 1,
+     "summaries_after_end": 0,
+     "median_lag_printed": 8.5,
+     "p90_lag_printed": 30
+    },
+    "sconres": {
+     "introduced_bills": 25,
+     "introduced_summarized": 25,
+     "summarized_other_stage": 1,
+     "summaries_after_end": 0,
+     "median_lag_printed": 14,
+     "p90_lag_printed": 65
+    }
+   }
+  },
+  {
+   "congress": "112",
+   "start": "2011-01-03",
+   "end": "2013-01-02",
+   "ended": true,
+   "as_of": "2026-11-09",
+   "file": "112/delays.js",
+   "bill_types": [
+    "hr",
+    "s",
+    "hres",
+    "sres",
+    "hconres",
+    "hjres",
+    "sconres",
+    "sjres"
+   ],
+   "text_versions": 14828,
+   "measures": [
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "characters": {
+     "versions_with_value": 14753,
+     "versions_total": 14828,
+     "total": 182866880,
+     "mean": 12395.2
+    },
+    "sections": {
+     "versions_with_value": 14753,
+     "versions_total": 14828,
+     "total": 269752,
+     "mean": 18.3
+    }
+   },
+   "comparison": {
+    "all": {
+     "introduced_bills": 11493,
+     "introduced_summarized": 11493,
+     "summarized_other_stage": 76,
+     "summaries_after_end": 350,
+     "median_lag_printed": 29,
+     "p90_lag_printed": 93
+    },
+    "hres": {
+     "introduced_bills": 652,
+     "introduced_summarized": 652,
+     "summarized_other_stage": 4,
+     "summaries_after_end": 6,
+     "median_lag_printed": 14.0,
+     "p90_lag_printed": 50
+    },
+    "hr": {
+     "introduced_bills": 6694,
+     "introduced_summarized": 6694,
+     "summarized_other_stage": 39,
+     "summaries_after_end": 218,
+     "median_lag_printed": 32.0,
+     "p90_lag_printed": 95
+    },
+    "s": {
+     "introduced_bills": 3577,
+     "introduced_summarized": 3577,
+     "summarized_other_stage": 25,
+     "summaries_after_end": 119,
+     "median_lag_printed": 34,
+     "p90_lag_printed": 99
+    },
+    "sjres": {
+     "introduced_bills": 40,
+     "introduced_summarized": 40,
+     "summarized_other_stage": 1,
+     "summaries_after_end": 1,
+     "median_lag_printed": 23.0,
+     "p90_lag_printed": 62
+    },
+    "sres": {
+     "introduced_bills": 252,
+     "introduced_summarized": 252,
+     "summarized_other_stage": 4,
+     "summaries_after_end": 2,
+     "median_lag_printed": 20.0,
+     "p90_lag_printed": 54
+    },
+    "sconres": {
+     "introduced_bills": 31,
+     "introduced_summarized": 31,
+     "summarized_other_stage": 0,
+     "summaries_after_end": 1,
+     "median_lag_printed": 22,
+     "p90_lag_printed": 63
+    },
+    "hconres": {
+     "introduced_bills": 128,
+     "introduced_summarized": 128,
+     "summarized_other_stage": 3,
+     "summaries_after_end": 1,
+     "median_lag_printed": 12.0,
+     "p90_lag_printed": 47
+    },
+    "hjres": {
+     "introduced_bills": 119,
+     "introduced_summarized": 119,
+     "summarized_other_stage": 0,
+     "summaries_after_end": 2,
+     "median_lag_printed": 14,
+     "p90_lag_printed": 56
+    }
+   }
+  },
+  {
+   "congress": "111",
+   "start": "2009-01-03",
+   "end": "2011-01-02",
+   "ended": true,
+   "as_of": "2026-11-09",
+   "file": "111/delays.js",
+   "bill_types": [
+    "hr",
+    "s",
+    "hres",
+    "sres",
+    "hconres",
+    "hjres",
+    "sconres",
+    "sjres"
+   ],
+   "text_versions": 17782,
+   "measures": [
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "characters": {
+     "versions_with_value": 17437,
+     "versions_total": 17782,
+     "total": 239054189,
+     "mean": 13709.6
+    },
+    "sections": {
+     "versions_with_value": 17437,
+     "versions_total": 17782,
+     "total": 321419,
+     "mean": 18.4
+    }
+   },
+   "comparison": {
+    "all": {
+     "introduced_bills": 12780,
+     "introduced_summarized": 12780,
+     "summarized_other_stage": 117,
+     "summaries_after_end": 328,
+     "median_lag_printed": 28.0,
+     "p90_lag_printed": 103
+    },
+    "hjres": {
+     "introduced_bills": 103,
+     "introduced_summarized": 103,
+     "summarized_other_stage": 2,
+     "summaries_after_end": 1,
+     "median_lag_printed": 17,
+     "p90_lag_printed": 50
+    },
+    "hr": {
+     "introduced_bills": 6530,
+     "introduced_summarized": 6530,
+     "summarized_other_stage": 51,
+     "summaries_after_end": 205,
+     "median_lag_printed": 33.0,
+     "p90_lag_printed": 107
+    },
+    "s": {
+     "introduced_bills": 3913,
+     "introduced_summarized": 3913,
+     "summarized_other_stage": 15,
+     "summaries_after_end": 112,
+     "median_lag_printed": 30,
+     "p90_lag_printed": 111
+    },
+    "hres": {
+     "introduced_bills": 1511,
+     "introduced_summarized": 1511,
+     "summarized_other_stage": 33,
+     "summaries_after_end": 6,
+     "median_lag_printed": 19,
+     "p90_lag_printed": 59
+    },
+    "sconres": {
+     "introduced_bills": 55,
+     "introduced_summarized": 55,
+     "summarized_other_stage": 0,
+     "summaries_after_end": 1,
+     "median_lag_printed": 23,
+     "p90_lag_printed": 84
+    },
+    "hconres": {
+     "introduced_bills": 308,
+     "introduced_summarized": 308,
+     "summarized_other_stage": 5,
+     "summaries_after_end": 1,
+     "median_lag_printed": 17.5,
+     "p90_lag_printed": 55
+    },
+    "sres": {
+     "introduced_bills": 326,
+     "introduced_summarized": 326,
+     "summarized_other_stage": 11,
+     "summaries_after_end": 2,
+     "median_lag_printed": 22.5,
+     "p90_lag_printed": 76
+    },
+    "sjres": {
+     "introduced_bills": 34,
+     "introduced_summarized": 34,
+     "summarized_other_stage": 0,
+     "summaries_after_end": 0,
+     "median_lag_printed": 14.5,
+     "p90_lag_printed": 67
+    }
+   }
+  },
+  {
+   "congress": "110",
+   "start": "2007-01-03",
+   "end": "2009-01-02",
+   "ended": true,
+   "as_of": "2026-11-09",
+   "file": "110/delays.js",
+   "bill_types": [
+    "hr",
+    "s",
+    "hres",
+    "sres",
+    "hconres",
+    "sconres",
+    "hjres",
+    "sjres"
+   ],
+   "text_versions": 19545,
+   "measures": [
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "characters": {
+     "versions_with_value": 18134,
+     "versions_total": 19545,
+     "total": 231983333,
+     "mean": 12792.7
+    },
+    "sections": {
+     "versions_with_value": 18134,
+     "versions_total": 19545,
+     "total": 324001,
+     "mean": 17.9
+    }
+   },
+   "comparison": {
+    "all": {
+     "introduced_bills": 13006,
+     "introduced_summarized": 13006,
+     "summarized_other_stage": 136,
+     "summaries_after_end": 410,
+     "median_lag_printed": 37.0,
+     "p90_lag_printed": 106
+    },
+    "s": {
+     "introduced_bills": 3524,
+     "introduced_summarized": 3524,
+     "summarized_other_stage": 24,
+     "summaries_after_end": 168,
+     "median_lag_printed": 49.0,
+     "p90_lag_printed": 127
+    },
+    "hconres": {
+     "introduced_bills": 415,
+     "introduced_summarized": 415,
+     "summarized_other_stage": 7,
+     "summaries_after_end": 2,
+     "median_lag_printed": 29,
+     "p90_lag_printed": 71
+    },
+    "hr": {
+     "introduced_bills": 7294,
+     "introduced_summarized": 7294,
+     "summarized_other_stage": 59,
+     "summaries_after_end": 227,
+     "median_lag_printed": 36.0,
+     "p90_lag_printed": 105
+    },
+    "hres": {
+     "introduced_bills": 1207,
+     "introduced_summarized": 1207,
+     "summarized_other_stage": 26,
+     "summaries_after_end": 8,
+     "median_lag_printed": 24,
+     "p90_lag_printed": 81
+    },
+    "sres": {
+     "introduced_bills": 350,
+     "introduced_summarized": 350,
+     "summarized_other_stage": 17,
+     "summaries_after_end": 5,
+     "median_lag_printed": 34.0,
+     "p90_lag_printed": 90
+    },
+    "sconres": {
+     "introduced_bills": 77,
+     "introduced_summarized": 77,
+     "summarized_other_stage": 1,
+     "summaries_after_end": 0,
+     "median_lag_printed": 33,
+     "p90_lag_printed": 86
+    },
+    "hjres": {
+     "introduced_bills": 97,
+     "introduced_summarized": 97,
+     "summarized_other_stage": 0,
+     "summaries_after_end": 0,
+     "median_lag_printed": 20,
+     "p90_lag_printed": 86
+    },
+    "sjres": {
+     "introduced_bills": 42,
+     "introduced_summarized": 42,
+     "summarized_other_stage": 2,
+     "summaries_after_end": 0,
+     "median_lag_printed": 36.0,
+     "p90_lag_printed": 93
+    }
+   }
+  },
+  {
+   "congress": "109",
+   "start": "2005-01-03",
+   "end": "2007-01-02",
+   "ended": true,
+   "as_of": "2026-11-09",
+   "file": "109/delays.js",
+   "bill_types": [
+    "hr",
+    "s",
+    "hres",
+    "sres",
+    "hconres",
+    "sconres",
+    "hjres",
+    "sjres"
+   ],
+   "text_versions": 16930,
+   "measures": [
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "characters": {
+     "versions_with_value": 11951,
+     "versions_total": 16930,
+     "total": 112788877,
+     "mean": 9437.6
+    },
+    "sections": {
+     "versions_with_value": 11951,
+     "versions_total": 16930,
+     "total": 170326,
+     "mean": 14.3
+    }
+   },
+   "comparison": {
+    "all": {
+     "introduced_bills": 12140,
+     "introduced_summarized": 12140,
+     "summarized_other_stage": 110,
+     "summaries_after_end": 260,
+     "median_lag_printed": 30.0,
+     "p90_lag_printed": 76
+    },
+    "hconres": {
+     "introduced_bills": 465,
+     "introduced_summarized": 465,
+     "summarized_other_stage": 8,
+     "summaries_after_end": 5,
+     "median_lag_printed": 22,
+     "p90_lag_printed": 65
+    },
+    "hr": {
+     "introduced_bills": 6385,
+     "introduced_summarized": 6385,
+     "summarized_other_stage": 46,
+     "summaries_after_end": 149,
+     "median_lag_printed": 33,
+     "p90_lag_printed": 76
+    },
+    "hres": {
+     "introduced_bills": 837,
+     "introduced_summarized": 837,
+     "summarized_other_stage": 21,
+     "summaries_after_end": 10,
+     "median_lag_printed": 26,
+     "p90_lag_printed": 60
+    },
+    "s": {
+     "introduced_bills": 3941,
+     "introduced_summarized": 3941,
+     "summarized_other_stage": 25,
+     "summaries_after_end": 87,
+     "median_lag_printed": 29,
+     "p90_lag_printed": 79
+    },
+    "hjres": {
+     "introduced_bills": 99,
+     "introduced_summarized": 99,
+     "summarized_other_stage": 0,
+     "summaries_after_end": 2,
+     "median_lag_printed": 16,
+     "p90_lag_printed": 56
+    },
+    "sres": {
+     "introduced_bills": 278,
+     "introduced_summarized": 278,
+     "summarized_other_stage": 7,
+     "summaries_after_end": 5,
+     "median_lag_printed": 27.0,
+     "p90_lag_printed": 57
+    },
+    "sconres": {
+     "introduced_bills": 95,
+     "introduced_summarized": 95,
+     "summarized_other_stage": 1,
+     "summaries_after_end": 2,
+     "median_lag_printed": 28,
+     "p90_lag_printed": 81
+    },
+    "sjres": {
+     "introduced_bills": 40,
+     "introduced_summarized": 40,
+     "summarized_other_stage": 2,
+     "summaries_after_end": 0,
+     "median_lag_printed": 22.0,
+     "p90_lag_printed": 72
+    }
+   }
+  },
+  {
+   "congress": "108",
+   "start": "2003-01-03",
+   "end": "2005-01-02",
+   "ended": true,
+   "as_of": "2026-11-09",
+   "file": "108/delays.js",
+   "bill_types": [
+    "hr",
+    "s",
+    "hres",
+    "hconres",
+    "sres",
+    "sconres",
+    "hjres",
+    "sjres"
+   ],
+   "text_versions": 14778,
+   "measures": [
+    "characters",
+    "sections"
+   ],
+   "size": {
+    "characters": {
+     "versions_with_value": 1619,
+     "versions_total": 14778,
+     "total": 10770729,
+     "mean": 6652.7
+    },
+    "sections": {
+     "versions_with_value": 1619,
+     "versions_total": 14778,
+     "total": 19303,
+     "mean": 11.9
+    }
+   },
+   "comparison": {
+    "all": {
+     "introduced_bills": 9909,
+     "introduced_summarized": 9909,
+     "summarized_other_stage": 482,
+     "summaries_after_end": 3524,
+     "median_lag_printed": 116,
+     "p90_lag_printed": 1390
+    },
+    "s": {
+     "introduced_bills": 2874,
+     "introduced_summarized": 2874,
+     "summarized_other_stage": 143,
+     "summaries_after_end": 976,
+     "median_lag_printed": 118.0,
+     "p90_lag_printed": 1387
+    },
+    "sres": {
+     "introduced_bills": 260,
+     "introduced_summarized": 260,
+     "summarized_other_stage": 18,
+     "summaries_after_end": 82,
+     "median_lag_printed": 77.5,
+     "p90_lag_printed": 1387
+    },
+    "hr": {
+     "introduced_bills": 5394,
+     "introduced_summarized": 5394,
+     "summarized_other_stage": 247,
+     "summaries_after_end": 2020,
+     "median_lag_printed": 138.0,
+     "p90_lag_printed": 1392
+    },
+    "hres": {
+     "introduced_bills": 616,
+     "introduced_summarized": 616,
+     "summarized_other_stage": 23,
+     "summaries_after_end": 183,
+     "median_lag_printed": 51.0,
+     "p90_lag_printed": 1372
+    },
+    "sconres": {
+     "introduced_bills": 110,
+     "introduced_summarized": 110,
+     "summarized_other_stage": 10,
+     "summaries_after_end": 30,
+     "median_lag_printed": 62.0,
+     "p90_lag_printed": 1358
+    },
+    "hconres": {
+     "introduced_bills": 506,
+     "introduced_summarized": 506,
+     "summarized_other_stage": 33,
+     "summaries_after_end": 166,
+     "median_lag_printed": 98.0,
+     "p90_lag_printed": 1370
+    },
+    "hjres": {
+     "introduced_bills": 111,
+     "introduced_summarized": 111,
+     "summarized_other_stage": 5,
+     "summaries_after_end": 57,
+     "median_lag_printed": 614,
+     "p90_lag_printed": 1420
+    },
+    "sjres": {
+     "introduced_bills": 38,
+     "introduced_summarized": 38,
+     "summarized_other_stage": 3,
+     "summaries_after_end": 10,
+     "median_lag_printed": 81.0,
+     "p90_lag_printed": 1384
+    }
+   }
+  }
+ ]
+}
