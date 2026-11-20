@@ -1,6 +1,6 @@
 # Bill Delay Tracker: how long do bill summaries lag behind bill text?
 
-**Target user:** A congressional staffer or reporter who needs a quick overview of newly introduced legislation and relies on the CRS summary on Congress.gov, which often appears days or weeks after the bill text itself.
+**Target user:** TODO (who uses the dashboard)
 
 Origin: Congressional Tech proposal [IV.2 Bill Delay Tracker](https://civictechdc.github.io/congressional-tech/proposals/IV.2/) (Civic Tech DC × American Governance Institute). This entry restates it in the assembly-line format so it can be prototyped here.
 
